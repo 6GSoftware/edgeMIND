@@ -1,0 +1,22 @@
+# Unnecessary files and directories
+/__pycache__/
+/Audio/
+/check-these/
+/Chome/
+/edgeMIND-LLMquery-server/testing/
+/edgeMIND-LLMquery-server/MModalLLM.code-workspace
+/edgeMIND-vector-db-server/__pycache__/
+/edgeMIND-vector-db-server/vector_db_server__http.py
+/env/
+/extracted_data/
+/model/
+/pdfs/
+/phi3_vision/
+/Pictures/
+
+# Metadata and vector database files
+/edgeMIND-vector-db-server/multimodal_faiss_index.index
+/edgeMIND-vector-db-server/topic_metadata_with_names.txt
+
+# Files containing environment variabes
+/edgeMIND-LLMquery-server/.env

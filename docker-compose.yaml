@@ -1,0 +1,26 @@
+services:
+  edgemind_llm_query_server:
+    build: 
+      context: ./edgeMIND-LLMquery-server
+    volumes:
+      - type: bind
+        source: /home/<user>/.cache/huggingface
+        target: /root/.cache/huggingface
+    networks:
+      - edgemind_network
+    ports:
+      - "5000:5000"
+
+  edgemind_vector_db_server:
+    build: 
+      context: ./edgeMIND-vector-db-server
+    networks:
+      - edgemind_network
+    ports:
+      - "8000:8000"
+
+networks:
+  edgemind_network:
+    external: true
+    driver: bridge
+
