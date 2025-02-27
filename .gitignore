@@ -6,12 +6,15 @@
 /edgeMIND-LLMquery-server/testing/
 /edgeMIND-vector-db-server/__pycache__/
 /edgeMIND-vector-db-server/vector_db_server__http.py
-/env/
 /extracted_data/
 /model/
 /pdfs/
 /phi3_vision/
 /Pictures/
+
+# Virtual environment(s)
+/env/
+/venv/
 
 # Metadata and vector database files
 /edgeMIND-vector-db-server/multimodal_faiss_index.index
