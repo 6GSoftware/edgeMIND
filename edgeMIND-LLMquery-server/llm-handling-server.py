@@ -22,10 +22,8 @@ import re
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
-#load_dotenv()
-
 # Server setup
-LLM_SERVER_IP = "---"  # Default: localhost
+LLM_SERVER_IP = "---"  # Use your own IP address
 LLM_SERVER_PORT = 5000
 
 VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
