@@ -10,7 +10,7 @@ This module is the edgeMIND user message processing and LLM handling server. Thi
 
 ## Setup instructions
 
-1. Change the name of ```config.example.env``` to ```.env```. Change the server IP address environment variable ```LLM_SERVER_IP``` to match the IP address of your development device.
-2. **This module is dependent on the edgeMIND vector database maintenance and querying server. See the README-file of the vector database server for instructions on setting it up.**
-3. See the project README-file for general instructions on how to set up the whole service and how to run the server applications in Docker containers as a multi-container server application.
+1. Change the value of ```LLM_SERVER_IP``` in file ```llm-handling-server.py``` to match the IP address of your development device.
+3. **This module is dependent on the edgeMIND vector database maintenance and querying server. See the README-file of the vector database server for instructions on setting it up.**
+4. See the project README-file for general instructions on how to set up the whole service and how to run the server applications in Docker containers as a multi-container server application.
 
