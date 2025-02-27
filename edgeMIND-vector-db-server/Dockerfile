@@ -13,10 +13,6 @@ COPY multimodal_faiss_index.index .
 # Copy the vector database handling server code to the image
 COPY vector-db-server.py .
 
-# Install dotenv library and copy the .env file to the image
-RUN pip install python-dotenv
-COPY .env .
-
 EXPOSE 8000
 
 CMD ["python3", "-u", "vector-db-server.py"]

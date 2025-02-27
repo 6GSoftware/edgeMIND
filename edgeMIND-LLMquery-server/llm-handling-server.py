@@ -9,23 +9,23 @@ This module is the edgeMIND user query processing server. This module:
     > sends the generated response back to the user.
 """
 
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
 from datetime import datetime
 import socket
 import re
-import os
+#import os
 
 
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
-load_dotenv()
+#load_dotenv()
 
 # Server setup
-LLM_SERVER_IP = os.getenv("LLM_SERVER_IP", "127.0.0.1")  # Default: localhost
+LLM_SERVER_IP = "---"  # Default: localhost
 LLM_SERVER_PORT = 5000
 
 VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
