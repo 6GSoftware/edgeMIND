@@ -2,10 +2,10 @@ services:
   edgemind_llm_query_server:
     build: 
       context: ./edgeMIND-LLMquery-server
-    volumes:
-      - type: bind
-        source: /home/<user>/.cache/huggingface
-        target: /root/.cache/huggingface
+    #volumes:
+    #  - type: bind
+    #    source: /home/<user>/.cache/huggingface
+    #    target: /root/.cache/huggingface
     networks:
       - edgemind_network
     ports:

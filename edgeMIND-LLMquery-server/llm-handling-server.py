@@ -29,6 +29,8 @@ LLM_SERVER_PORT = 5000
 VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
 VECTOR_BD_SERVER_PORT = 8000
 
+model_path = "/mydir/saved_LLM_model"
+
 # Define the prompt template for the assistant
 prompt_template = """
 <|system|>
@@ -174,6 +176,7 @@ def start_server():
     #embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
 
+    '''
     # Load the text generation model and tokenizer from Hugging Face Hub
     model = AutoModelForCausalLM.from_pretrained(
         "microsoft/Phi-3.5-mini-instruct", 
@@ -182,6 +185,13 @@ def start_server():
         trust_remote_code=True,
     )
     tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
+    '''
+
+    # Load the text generation model and tokenizer
+    model = AutoModelForCausalLM.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+    print("Model loaded successfully!")
 
     # Create a text generation pipeline
     pipe = pipeline(

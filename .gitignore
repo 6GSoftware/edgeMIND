@@ -22,3 +22,6 @@
 
 # Files containing environment variabes
 /edgeMIND-LLMquery-server/.env
+
+# The LLM model files
+/edgeMIND-LLMquery-server/saved_LLM_model/
