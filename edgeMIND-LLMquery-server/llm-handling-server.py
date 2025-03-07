@@ -26,8 +26,8 @@ torch.random.manual_seed(0)
 LLM_SERVER_IP = "---"  # Use your own IP address
 LLM_SERVER_PORT = 5000
 
-VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
-VECTOR_BD_SERVER_PORT = 8000
+#VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
+#VECTOR_BD_SERVER_PORT = 8000
 
 model_path = "/mydir/saved_LLM_model"
 
@@ -98,19 +98,22 @@ def filter_generated_text(generated_text, retrieved_texts):
     return filtered_text
 
 
-def handle_client(client_socket, client_address, generation_args, pipe):
+def query_llm(client_socket, generation_args, pipe):
     """Handle a connected client: \n
     - receive query from the client and send it to the vector database server.
     - receive response from the vector database server. Send the response and the user query to the LLM.
     - get a generated response from the LLm and send it back to the client.
     - finally, close client socket connection."""
-    # Receive data from the client (up to 1024 bytes)
-    data = client_socket.recv(1024)
 
+    # Receive data from the client (up to 1024 bytes)
+    db_data = client_socket.recv(1024).decode('utf-8')
+    user_query = client_socket.recv(1024).decode('utf-8')
+
+    '''
     if not data:
         print("No data was received.")
         return
-    print(f"Received from client: {data.decode('utf-8')}")
+    print(f"Received from client: {data.decode()}")
     now=datetime.now()
     print(now)
 
@@ -126,6 +129,7 @@ def handle_client(client_socket, client_address, generation_args, pipe):
 
     print("Type of the received data: ", type(response))
     print("Received from the vector db handler server:\n", str(response))
+    
 
     # Prepare response for the client
     if response:
@@ -133,21 +137,12 @@ def handle_client(client_socket, client_address, generation_args, pipe):
     else:
         message = "I couldn't find relevant information for your query. Could you provide more details?"
     '''
-    if response_as_list:
-        retrieved_texts = "\n".join([
-            f"**Topic**: {result['topic']}\n**Timestamp**: {result['timestamp']}\n**Text**: {result['text']}\n"
-            for result in response_as_list[:3]
-        ])
 
-        print(f"Retrieved relevant info: {retrieved_texts}")
-        now=datetime.now()
-        print(now)
-        
-        message = PROMPT.format(context=retrieved_texts,question=data)
-
+    # Prepare response for the client
+    if db_data:
+        message = PROMPT.format(context=db_data,question=user_query)
     else:
-        message = "I couldn't find relevant information for your query. Could you provide more details?"
-    '''
+        message = "I couldn't find relevant information for your query. Could you provide more details?" 
 
     # Generate output using the text generation model
     output = pipe(message, **generation_args)
@@ -155,15 +150,25 @@ def handle_client(client_socket, client_address, generation_args, pipe):
     print(f"Generated response before cleanup: {generated_text}")
 
     # Filter out the retrieved texts from the generated response
-    final_generated_text = filter_generated_text(generated_text, response)
+    #final_generated_text = filter_generated_text(generated_text, response)
+    final_generated_text = filter_generated_text(generated_text, db_data)
     print(f"Final generated response: {final_generated_text}")
 
+    return final_generated_text
+
     # Send the cleaned and filtered response back to the client
-    client_socket.sendall(final_generated_text.encode('utf-8'))
+    #client_socket.sendall(final_generated_text.encode('utf-8'))
 
     # Close the client connection
-    client_socket.close()
-    print(f"Connection closed with {client_address}")
+    #client_socket.close()
+    #print(f"Connection closed with {client_address}")
+
+
+def identify_client(client_socket):
+    identifier = client_socket.recv(1024).decode()
+    if identifier == "db":
+        return True
+    return False
 
 
 
@@ -213,7 +218,7 @@ def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     # Bind the socket to the server address and port
-    server_socket.bind((LLM_SERVER_IP, LLM_SERVER_PORT))
+    server_socket.bind((LLM_SERVER_IP, LLM_SERVER_PORT))    # TODO: how to choose which llm server this one is?
     
     # Listen for incoming connections (5 connections in the queue)
     server_socket.listen(5)
@@ -221,11 +226,32 @@ def start_server():
 
     while True:
         try:
-            # Accept an incoming connection
-            client_socket, client_address = server_socket.accept()
-            print(f"Connection established with {client_address}")
+            # Accept an incoming connection (probably the mobile app)
+            client_socket_1, client_address_1 = server_socket.accept()
+            print(f"Connection established with {client_address_1}")
 
-            handle_client(client_socket, client_address, generation_args, pipe)
+            # Accept an incoming connection (probably the db server)
+            client_socket_2, client_address_2 = server_socket.accept()
+            print(f"Connection established with {client_address_2}")
+            # Identify the client
+            isDBsocket = identify_client(client_socket_2)
+
+            if isDBsocket:
+                db_socket = client_socket_2
+                app_socket = client_socket_1
+            else:
+                db_socket = client_socket_1
+                app_socket = client_socket_2
+
+            result = query_llm(db_socket, generation_args, pipe)
+            # Close connection with the db server
+            db_socket.close()
+            print("Connection closed with the database server")
+            # Send the llm query result to the mobile app
+            app_socket.sendall(result.encode('utf-8'))
+            # Close connection with the mobile app
+            app_socket.close()
+            print("Connection closed with the mobile application")
 
         except Exception as e:
             print(f"An error occurred: {e}")

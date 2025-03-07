@@ -4,8 +4,10 @@ import json
 import socket
 from sentence_transformers import SentenceTransformer
 
-HOST = "edgemind_vector_db_server"  # Service name
-PORT = 8000
+HOST = "---"
+HOST_PORT = 8000
+
+IDENTIFIER = "db"
 
 
 index_file_path = 'multimodal_faiss_index.index'
@@ -52,6 +54,25 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     return results
 
 
+def choose_server(output_format):
+    llm_server = {}
+    match output_format:
+        case "text":
+            llm_server["server_ip"] = "edgemind_llm_query_server_1"
+            llm_server["server_port"] = 5000
+            return llm_server
+        case "audio":
+            llm_server["server_ip"] = "edgemind_llm_query_server_2"
+            llm_server["server_port"] = 5001
+            return llm_server
+        case _:
+            llm_server["server_ip"] = "edgemind_llm_query_server_1"
+            llm_server["server_port"] = 5000
+            return llm_server
+
+    #return (llm_server_ip, llm_server_port)     # Return a tuple with the ip address and the port for the correct llm server
+
+
 def start_server():
 
     """Create and start the socket server"""
@@ -61,11 +82,11 @@ def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     # Bind the socket to the server address and port
-    server_socket.bind((HOST, PORT))
+    server_socket.bind((HOST, HOST_PORT))
     
     # Listen for incoming connections (5 connections in the queue)
     server_socket.listen(5)
-    print(f"Server is listening on {HOST}:{PORT}")
+    print(f"Server is listening on {HOST}:{HOST_PORT}")
 
     while True:
         try:
@@ -80,6 +101,16 @@ def start_server():
 
             # Receive data from the client (up to 1024 bytes)
             query_text = client_socket.recv(1024).decode('utf-8')
+
+            # Receive the choice about output format
+            output_format = client_socket.recv(1024).decode('utf-8')
+
+            # Choose which llm server to send the db results to, based on output_format
+            llm_server = choose_server(output_format)
+
+            # Close connection to the mobile app
+            client_socket.close()
+            print(f"Connection closed with {client_address}")
 
             results = search_faiss_index(query_text, index, metadata, embedding_function)
             print("Result from searching the faiss index:\n", results)
@@ -100,17 +131,22 @@ def start_server():
             else:
                 response = ""
 
+            # Connect and send the response and the query to the llm server
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((llm_server["server_ip"], llm_server["server_port"]))
+                s.sendall(IDENTIFIER.encode('utf-8'))
+                # Send the db query result
+                s.sendall(response.encode('utf-8'))
+                # Send the user query
+                s.sendall(query_text.encode('utf-8'))
+
             # Convert results (list) to a string
             #result_as_string = str(results)
 
             # Send the faiss index search result to the client
             #client_socket.sendall(pickle.dumps(results))
-            client_socket.sendall(response.encode('utf-8'))
+            #client_socket.sendall(response.encode('utf-8'))
             #client_socket.sendall(json.dumps(results).encode('utf-8'))
-
-            # Close the client connection
-            client_socket.close()
-            print(f"Connection closed with {client_address}")
 
         except Exception as e:
             print(f"An error occurred: {e}")
