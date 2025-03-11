@@ -3,7 +3,7 @@
 /Audio/
 /check-these/
 /Chome/
-/edgeMIND-LLMquery-server/testing/
+/LLMquery-server-text/testing/
 /edgeMIND-vector-db-server/__pycache__/
 /edgeMIND-vector-db-server/vector_db_server__http.py
 /extracted_data/
@@ -21,7 +21,7 @@
 /edgeMIND-vector-db-server/topic_metadata_with_names.txt
 
 # Files containing environment variabes
-/edgeMIND-LLMquery-server/.env
+/LLMquery-server-text/.env
 
 # The LLM model files
-/edgeMIND-LLMquery-server/saved_LLM_model/
+/LLMquery-server-text/saved_LLM_model/

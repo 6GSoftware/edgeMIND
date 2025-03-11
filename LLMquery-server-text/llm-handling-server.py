@@ -105,9 +105,14 @@ def query_llm(client_socket, generation_args, pipe):
     - get a generated response from the LLm and send it back to the client.
     - finally, close client socket connection."""
 
+    print("Receive data from the database server:\n")
+
     # Receive data from the client (up to 1024 bytes)
     db_data = client_socket.recv(1024).decode('utf-8')
+    print("db results received\n")
+
     user_query = client_socket.recv(1024).decode('utf-8')
+    print("user query received\n")
 
     '''
     if not data:
@@ -165,7 +170,10 @@ def query_llm(client_socket, generation_args, pipe):
 
 
 def identify_client(client_socket):
+    print("Identifying the client:\n")
     identifier = client_socket.recv(1024).decode()
+
+    print("Received: " + identifier + "\n")
     if identifier == "db":
         return True
     return False

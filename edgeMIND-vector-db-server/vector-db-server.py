@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 HOST = "---"
 HOST_PORT = 8000
 
-IDENTIFIER = "db"
+#IDENTIFIER = "db"
 
 
 index_file_path = 'multimodal_faiss_index.index'
@@ -53,7 +53,7 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     
     return results
 
-
+'''
 def choose_server(output_format):
     llm_server = {}
     match output_format:
@@ -70,7 +70,24 @@ def choose_server(output_format):
             llm_server["server_port"] = 5000
             return llm_server
 
-    #return (llm_server_ip, llm_server_port)     # Return a tuple with the ip address and the port for the correct llm server
+    #return (llm_server_ip, llm_server_port)     # Return a tuple with the ip address and the port for the correct llm server'
+'''
+
+def choose_server(output_format):
+    llm_server = {}
+    match output_format:
+        case "text":
+            llm_server["server_ip"] = "edgemind_llm_query_server_1"
+            llm_server["server_port"] = 6000
+            return llm_server
+        case "audio":
+            llm_server["server_ip"] = "edgemind_llm_query_server_2"
+            llm_server["server_port"] = 6001
+            return llm_server
+        case _:
+            llm_server["server_ip"] = "edgemind_llm_query_server_1"
+            llm_server["server_port"] = 6000
+            return llm_server
 
 
 def start_server():
@@ -107,6 +124,7 @@ def start_server():
 
             # Choose which llm server to send the db results to, based on output_format
             llm_server = choose_server(output_format)
+            print(f"The llm server to send the results to is: {llm_server["server_ip"]}:{llm_server['server_port']}")
 
             # Close connection to the mobile app
             client_socket.close()
@@ -122,7 +140,7 @@ def start_server():
                     for result in results[:3]
                 ])
 
-                print(f"Retrieved relevant info: {retrieved_texts}")
+                print(f"Retrieved relevant info: {retrieved_texts}\n")
                 now=datetime.now()
                 print(now)
         
@@ -131,14 +149,35 @@ def start_server():
             else:
                 response = ""
 
+            '''
             # Connect and send the response and the query to the llm server
+            print("Establishing socket connection with the llm server...")
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((llm_server["server_ip"], llm_server["server_port"]))
+
+                print("Connected to llm server!")
+                print("Sending data to llm server...\n")
+
                 s.sendall(IDENTIFIER.encode('utf-8'))
+                print("identifier sent\n")
                 # Send the db query result
                 s.sendall(response.encode('utf-8'))
+                print("db results sent\n")
                 # Send the user query
                 s.sendall(query_text.encode('utf-8'))
+                print("user query sent\n")'
+            '''
+
+            # Connect and send the response and the query to the llm server
+
+            data = json.dumps({"query": query_text, "results": response})
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                print("Connecting to the llm server...")
+                s.connect((llm_server["server_ip"], llm_server["server_port"]))
+
+                s.sendall(data.encode('utf-8'))
 
             # Convert results (list) to a string
             #result_as_string = str(results)
