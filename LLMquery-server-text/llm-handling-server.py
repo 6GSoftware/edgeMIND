@@ -10,6 +10,7 @@ This module is the edgeMIND user query processing server. This module:
 """
 
 #from dotenv import load_dotenv
+import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
@@ -23,8 +24,11 @@ import re
 torch.random.manual_seed(0)
 
 # Server setup
-LLM_SERVER_IP = "---"  # Use your own IP address
-LLM_SERVER_PORT = 5000
+SERVER_IP_MOBILE = "---"  # Use your own IP address
+SERVER_PORT_MOBILE = 5000
+
+SERVER_IP_DB = "llm_query_server_text"
+SERVER_PORT_DB = 6000
 
 #VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
 #VECTOR_BD_SERVER_PORT = 8000
@@ -105,23 +109,29 @@ def query_llm(client_socket, generation_args, pipe):
     - get a generated response from the LLm and send it back to the client.
     - finally, close client socket connection."""
 
+    '''
     print("Receive data from the database server:\n")
-
     # Receive data from the client (up to 1024 bytes)
     db_data = client_socket.recv(1024).decode('utf-8')
     print("db results received\n")
 
     user_query = client_socket.recv(1024).decode('utf-8')
     print("user query received\n")
-
     '''
+    
+    data = client_socket.recv(1024)
+    data = json.loads(data)
+    user_query = data["query"]
+    db_data = data["results"]
+
     if not data:
         print("No data was received.")
         return
-    print(f"Received from client: {data.decode()}")
+    print(f"Received from client: {data}")
     now=datetime.now()
     print(now)
 
+    '''
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # Connect to the vector db handler server and send the query
         s.connect((VECTOR_DB_SERVER_IP, VECTOR_BD_SERVER_PORT))
@@ -222,16 +232,42 @@ def start_server():
     }
 
 
-    # Create a socket object
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    
-    # Bind the socket to the server address and port
-    server_socket.bind((LLM_SERVER_IP, LLM_SERVER_PORT))    # TODO: how to choose which llm server this one is?
-    
-    # Listen for incoming connections (5 connections in the queue)
-    server_socket.listen(5)
-    print(f"Server is listening on {LLM_SERVER_IP}:{LLM_SERVER_PORT}")
+    # Create socket server for the mobile app to connect to
+    mobile_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    mobile_server_socket.bind((SERVER_IP_MOBILE, SERVER_PORT_MOBILE))
+    mobile_server_socket.listen(5)
+    print(f"Server for mobile app is listening on {SERVER_IP_MOBILE}:{SERVER_PORT_MOBILE}")
 
+    # Create socket server for the db server to connect to
+    db_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    db_server_socket.bind((SERVER_IP_DB, SERVER_PORT_DB))
+    db_server_socket.listen(5)
+    print(f"Server for db server is listening on {SERVER_IP_DB}:{SERVER_PORT_DB}")
+
+    while True:
+        try:
+            # Accept incoming connections from the mobile app and the database server
+            mobile_socket, mobile_address = mobile_server_socket.accept()
+            print(f"Connection established with {mobile_address}")
+
+            db_socket, db_address = db_server_socket.accept()
+            print(f"Connection established with {db_address}")
+
+            # Query the llm
+            result = query_llm(db_socket, generation_args, pipe)
+            db_socket.close()
+            print("Connection closed with the database server")
+
+            # Send the llm query result to the mobile app
+            mobile_socket.sendall(result.encode('utf-8'))
+            mobile_socket.close()
+            print("Connection closed with the mobile application")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+
+    '''
     while True:
         try:
             # Accept an incoming connection (probably the mobile app)
@@ -262,7 +298,8 @@ def start_server():
             print("Connection closed with the mobile application")
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"An error occurred: {e}")'
+    '''
 
 
 if __name__ == "__main__":

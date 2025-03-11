@@ -1,3 +1,4 @@
+# The Dockerfile for the text generating LLM server
 FROM python:3.10
 
 WORKDIR /mydir
@@ -17,6 +18,6 @@ COPY saved_LLM_model ./saved_LLM_model
 # Set environment variable for the path of huggingface cache files
 #ENV HF_HOME="/root/.cache/huggingface"
 
-EXPOSE 5000
+EXPOSE 5000 6000
 
 CMD ["python3", "-u", "llm-handling-server.py"]

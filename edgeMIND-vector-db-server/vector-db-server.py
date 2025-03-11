@@ -124,7 +124,7 @@ def start_server():
 
             # Choose which llm server to send the db results to, based on output_format
             llm_server = choose_server(output_format)
-            print(f"The llm server to send the results to is: {llm_server["server_ip"]}:{llm_server['server_port']}")
+            print(f"The llm server to send the results to is: {llm_server['server_ip']}:{llm_server['server_port']}")
 
             # Close connection to the mobile app
             client_socket.close()
@@ -175,9 +175,9 @@ def start_server():
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 print("Connecting to the llm server...")
-                s.connect((llm_server["server_ip"], llm_server["server_port"]))
+                s.connect((llm_server['server_ip'], llm_server['server_port']))
 
-                s.sendall(data.encode('utf-8'))
+                s.sendall(data)
 
             # Convert results (list) to a string
             #result_as_string = str(results)

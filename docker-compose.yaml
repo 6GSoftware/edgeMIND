@@ -1,7 +1,7 @@
 services:
-  edgemind_llm_query_server_1:
+  llm_query_server_text:
     build: 
-      context: ./edgeMIND-LLMquery-server
+      context: ./LLMquery-server-text
     #volumes:
     #  - type: bind
     #    source: /home/<user>/.cache/huggingface
@@ -10,10 +10,11 @@ services:
       - edgemind_network
     ports:
       - "5000:5000"
+      - "6000:6000"
 
-  edgemind_llm_query_server_2:
+  llm_query_server_audio:
     build: 
-      context: ./edgeMIND-LLMquery-server
+      context: ./LLMquery-server-audio
     #volumes:
     #  - type: bind
     #    source: /home/<user>/.cache/huggingface
@@ -21,9 +22,10 @@ services:
     networks:
       - edgemind_network
     ports:
-      - "5001:5000"
+      - "5001:5001"
+      - "6001:6001"
 
-  edgemind_vector_db_server:
+  vector_db_server:
     build: 
       context: ./edgeMIND-vector-db-server
     networks:
