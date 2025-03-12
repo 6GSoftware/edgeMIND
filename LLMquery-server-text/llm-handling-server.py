@@ -119,7 +119,7 @@ def query_llm(client_socket, generation_args, pipe):
     print("user query received\n")
     '''
     
-    data = client_socket.recv(1024)
+    data = client_socket.recv(1024).decode('utf-8')
     data = json.loads(data)
     user_query = data["query"]
     db_data = data["results"]

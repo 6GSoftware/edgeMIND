@@ -77,16 +77,16 @@ def choose_server(output_format):
     llm_server = {}
     match output_format:
         case "text":
-            llm_server["server_ip"] = "edgemind_llm_query_server_1"
-            llm_server["server_port"] = 6000
+            llm_server['server_ip'] = "llm_query_server_text"
+            llm_server['server_port'] = 6000
             return llm_server
         case "audio":
-            llm_server["server_ip"] = "edgemind_llm_query_server_2"
-            llm_server["server_port"] = 6001
+            llm_server['server_ip'] = "llm_query_server_audio"
+            llm_server['server_port'] = 6001
             return llm_server
         case _:
-            llm_server["server_ip"] = "edgemind_llm_query_server_1"
-            llm_server["server_port"] = 6000
+            llm_server['server_ip'] = "llm_query_server_text"
+            llm_server['server_port'] = 6000
             return llm_server
 
 
@@ -118,9 +118,11 @@ def start_server():
 
             # Receive data from the client (up to 1024 bytes)
             query_text = client_socket.recv(1024).decode('utf-8')
+            print(f"The user query: {query_text}")
 
             # Receive the choice about output format
             output_format = client_socket.recv(1024).decode('utf-8')
+            print(f"The output format: {output_format}")
 
             # Choose which llm server to send the db results to, based on output_format
             llm_server = choose_server(output_format)
@@ -177,7 +179,7 @@ def start_server():
                 print("Connecting to the llm server...")
                 s.connect((llm_server['server_ip'], llm_server['server_port']))
 
-                s.sendall(data)
+                s.sendall(data.encode('utf-8'))
 
             # Convert results (list) to a string
             #result_as_string = str(results)
