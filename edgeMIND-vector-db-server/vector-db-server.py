@@ -116,6 +116,14 @@ def start_server():
             metadata = load_metadata(metadata_file_path)
             embedding_function = load_embedding_function()
 
+            # Receive data from the client as JSON
+            data = json.loads(client_socket.recv(1024).decode('utf-8'))
+            query_text = data['message']
+            output_format = data['output']
+            print(f"Received from client: {query_text} and {output_format}")
+
+
+            '''
             # Receive data from the client (up to 1024 bytes)
             query_text = client_socket.recv(1024).decode('utf-8')
             print(f"The user query: {query_text}")
@@ -123,6 +131,7 @@ def start_server():
             # Receive the choice about output format
             output_format = client_socket.recv(1024).decode('utf-8')
             print(f"The output format: {output_format}")
+            '''
 
             # Choose which llm server to send the db results to, based on output_format
             llm_server = choose_server(output_format)
