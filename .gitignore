@@ -26,3 +26,6 @@
 # The LLM model files
 /LLMquery-server-text/saved_LLM_model/
 /LLMquery-server-audio/saved_LLM_model/
+
+# For now...
+/Input-side-server/
