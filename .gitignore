@@ -20,6 +20,9 @@
 /edgeMIND-vector-db-server/multimodal_faiss_index.index
 /edgeMIND-vector-db-server/topic_metadata_with_names.txt
 
+/edgeMIND-vector-db-server/multimodal_faiss_index_old.index
+/edgeMIND-vector-db-server/topic_metadata_with_names_old.txt
+
 # Files containing environment variabes
 /LLMquery-server-text/.env
 
