@@ -30,8 +30,20 @@
 /LLMquery-server-text/saved_LLM_model/
 /LLMquery-server-audio/saved_LLM_model/
 
-# For now...
-/Input-side-server/
+# From Input-side-server 
+/Input-side-server/__pycache__
+/Input-side-server/Audio/
+/Input-side-server/old_stuff
+/Input-side-server/pdfs/
+/Input-side-server/phi3_vision/
+/Input-side-server/Pictures/
+/Input-side-server/uploads/
+/Input-side-server/file_upload_server.py
+/Input-side-server/emultimodal_extracted_data.txt
+/Input-side-server/multimodal_faiss_index.index
+/Input-side-server/Pre_processed_text.txt
+/Input-side-server/topic_metadata_with_names.txt
 
 # Other files
 workflow_documentation.md
+.env
