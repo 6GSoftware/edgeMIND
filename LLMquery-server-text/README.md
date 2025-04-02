@@ -11,6 +11,6 @@ This module is the edgeMIND user message processing and LLM handling server. Thi
 ## Setup instructions
 
 1. Change the value of ```LLM_SERVER_IP``` in file ```llm-handling-server.py``` to match the IP address of your development machine.
-3. **This module is dependent on the edgeMIND vector database maintenance and querying server. See the README-file of the vector database server for instructions on setting it up.**
-4. See the project README file for general instructions on how to set up the whole service and how to run the server applications in Docker containers as a multi-container server application.
+3. **NB!** This module is dependent on `edgeMIND-vector-db-server`. See the `README.md` file of the vector database server for instructions on setting it up.
+4. See the project `README.md` file for general instructions on how to set up the whole service and how to run the server applications in Docker containers as a multi-container server application.
 
