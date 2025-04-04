@@ -11,6 +11,10 @@ in the file processing process.
 
 from flask import Flask, request
 import os
+from dotenv import load_dotenv
+
+# Loads the environment variables from the .env file
+load_dotenv()
 
 #from pre_processing import pre_process_uploaded_file
 #from extracted_text_processing import process_extracted_texts
