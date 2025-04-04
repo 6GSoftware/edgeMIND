@@ -21,7 +21,7 @@ image_folder = r'./Pictures'
 output_file = r'./Pictures/texts_Image.txt'
 processed_files_path = r'./Pictures/processed_images.txt'
 
-def process_image_files(new_file):
+def process_image_files():
     # Set model ID and load model and processor
     model_id = "microsoft/Phi-3.5-vision-instruct"
     #model_id = "./phi3_vision"
@@ -53,66 +53,67 @@ def process_image_files(new_file):
                 processed_files.add(line.strip())  # Each line represents a processed file name
 
     # Process each image individually
-    if new_file.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
-        if new_file in processed_files:
-            print(f"{TAG} Skipping already processed file: {new_file}")
-            return
-
-        file_path = os.path.join(image_folder, new_file)
-
-        # Open the image
-        image = Image.open(file_path)
-
-        # Always use image_id 1 for single images
-        placeholder = f"<|image_1|>\n"  # Set the image_id to 1 for each image
-
-        # Define the message for summarization
-        messages = [
-            {"role": "user", 
-        "content": f"{placeholder}Extract all details from the image exactly as they appear. Then, create a concise bulleted list summarizing the key points."}
-        ]
-
-        # Prepare the prompt
-        prompt = processor.tokenizer.apply_chat_template(
-            messages, 
-            tokenize=False, 
-            add_generation_prompt=True
-        )
-
-        # Preprocess the input
-        inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
-
-        # Define generation arguments
-        generation_args = {
-            "max_new_tokens": 1000,
-            "temperature": 0.0,
-            "do_sample": False,
-        }
-
-        # Generate the output
-        generate_ids = model.generate(
-            **inputs,
-            eos_token_id=processor.tokenizer.eos_token_id,
-            **generation_args
-        )
-
-        # Remove input tokens from generated IDs
-        generate_ids = generate_ids[:, inputs['input_ids'].shape[1]:]
-
-        # Decode the generated IDs into text
-        response = processor.batch_decode(
-            generate_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False
-        )[0]
-
-        # Save the response to the output file
-        with open(output_file, 'a', encoding='utf-8') as f:
-            f.write(f"Response for {new_file}:\n")  # Store the image file name
-            f.write(response + "\n\n")
-
-        # Step 2: Update processed_images.txt to avoid reprocessing the same image
-        with open(processed_files_path, 'a', encoding='utf-8') as f:
-            f.write(new_file + '\n')  # Save the image file name
-
-        print(f"{TAG} Processed and saved response for {new_file}")
+    for filename in os.listdir(image_folder):
+        if filename.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
+            if filename in processed_files:
+                print(f"Skipping already processed file: {filename}")
+                continue
+            
+            file_path = os.path.join(image_folder, filename)
+            
+            # Open the image
+            image = Image.open(file_path)
+            
+            # Always use image_id 1 for single images
+            placeholder = f"<|image_1|>\n"  # Set the image_id to 1 for each image
+    
+            # Define the message for summarization
+            messages = [
+                {"role": "user", 
+            "content": f"{placeholder}Extract all details from the image exactly as they appear. Then, create a concise bulleted list summarizing the key points."}
+            ]
+    
+            # Prepare the prompt
+            prompt = processor.tokenizer.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            
+            # Preprocess the input
+            inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
+            
+            # Define generation arguments
+            generation_args = {
+                "max_new_tokens": 1000,
+                "temperature": 0.0,
+                "do_sample": False,
+            }
+            
+            # Generate the output
+            generate_ids = model.generate(
+                **inputs,
+                eos_token_id=processor.tokenizer.eos_token_id,
+                **generation_args
+            )
+            
+            # Remove input tokens from generated IDs
+            generate_ids = generate_ids[:, inputs['input_ids'].shape[1]:]
+            
+            # Decode the generated IDs into text
+            response = processor.batch_decode(
+                generate_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )[0]
+            
+            # Save the response to the output file
+            with open(output_file, 'a', encoding='utf-8') as f:
+                f.write(f"Response for {filename}:\n")  # Store the image file name
+                f.write(response + "\n\n")
+    
+            # Step 2: Update processed_images.txt to avoid reprocessing the same image
+            with open(processed_files_path, 'a', encoding='utf-8') as f:
+                f.write(filename + '\n')  # Save the image file name
+            
+            print(f"Processed and saved response for {filename}")

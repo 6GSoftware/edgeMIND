@@ -9,14 +9,12 @@ Then the other modules handling the processing of the file are called in order, 
 in the file processing process.
 """
 
-# let's test the branch!
-
 from flask import Flask, request
 import os
 
-from pre_processing import pre_process_uploaded_file
-from extracted_text_processing import process_extracted_texts
-from situational_awareness_faiss import vectorize_and_save_to_vector_db
+#from pre_processing import pre_process_uploaded_file
+#from extracted_text_processing import process_extracted_texts
+#from situational_awareness_faiss import vectorize_and_save_to_vector_db
 
 app = Flask(__name__)
 
@@ -66,7 +64,7 @@ def get_directory_for_file_type(file_type):
    return None
 
 
-def save_and_process_file(file_name, file):
+def save_file(file_name, file):
     """Save the uploaded file to an appropriate directory"""
 
     # Determine file type and set the appropriate directory
@@ -80,25 +78,25 @@ def save_and_process_file(file_name, file):
     # Create full file path
     file_path = os.path.join(directory, file_name)
 
-    # Process step 1: Save received file to appropriate folder
+    # Save received file to appropriate folder
     file.save(f"{file_path}")
     print(f"{TAG} File saved successfully at: {file_path}")
 
-    # Process step 2: Extract text from the file and save the exracted text to appropriate file.
-    pre_process_uploaded_file(file_name, file_type)
-    print(f"{TAG} Text extracted from the file and saved to appropriate files")
+    ## Process step 2: Extract text from the file and save the exracted text to appropriate file.
+    #pre_process_uploaded_file(file_name, file_type)
+    #print(f"{TAG} Text extracted from the file and saved to appropriate files")
+    #
+    ## Process step 3: Process the data that was extracted from the uploaded file:
+    ## tokenize sentences and save them to appropriate file
+    #process_extracted_texts()
+    #print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
+    #
+    ## Process step 4:
+    #vectorize_and_save_to_vector_db()
+    #print(f"{TAG} The texts have been vectorized and saved to the faiss index")
+    #print(f"{TAG} Process complete!\n")
 
-    # Process step 3: Process the data that was extracted from the uploaded file:
-    # tokenize sentences and save them to appropriate file
-    process_extracted_texts()
-    print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
-
-    # Process step 4:
-    vectorize_and_save_to_vector_db()
-    print(f"{TAG} The texts have been vectorized and saved to the faiss index")
-    print(f"{TAG} Process complete!\n")
-
-    return 'File uploaded and processed successfully'
+    return 'File uploaded and saved successfully'
 
 
 @app.route('/upload', methods=['POST'])
@@ -115,7 +113,7 @@ def upload_file():
     file_name = file.filename
     
     # Save the file and go through the process for processing the uploaded file
-    response_message = save_and_process_file(file_name, file)
+    response_message = save_file(file_name, file)
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200

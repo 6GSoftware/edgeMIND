@@ -18,7 +18,7 @@ audio_folder = './Audio'
 transcription_file_path = os.path.join(audio_folder, 'texts_audio.txt')  # File to store transcriptions
 processed_files_path = os.path.join(audio_folder, 'processed_files.txt')  # File to track processed files
 
-def transcribe_audio_files(audio_folder, processed_files_path, new_file):
+def transcribe_audio_files(audio_folder, processed_files_path):
     """Load and process audio files, returning the transcriptions."""
     
     # Step 1: Initialize Whisper model for transcription
@@ -35,31 +35,32 @@ def transcribe_audio_files(audio_folder, processed_files_path, new_file):
                 processed_files.add(line.strip())  # Each line represents a processed file name
 
     # Step 3: Transcribe audio files and append transcriptions to texts
-    if new_file.endswith('.mp3') or new_file.endswith('.wav'):
-        if new_file in processed_files:
-            print(f"{TAG} Skipping already processed file: {new_file}")
-            return None
+    for audio_file in os.listdir(audio_folder):
+        if audio_file.endswith('.mp3') or audio_file.endswith('.wav'):
+            if audio_file in processed_files:
+                print(f"Skipping already processed file: {audio_file}")
+                continue
 
-        new_file_path = os.path.join(audio_folder, new_file)
-        print(f"{TAG} Processing file: {new_file_path}")
-        
-        # Transcribe the audio file using Whisper
-        try:
-            result = model_whisper.transcribe(new_file_path)
-            transcription = result['text']
-            print(f"Transcription for {new_file}: {transcription}")
+            audio_path = os.path.join(audio_folder, audio_file)
+            print(f"Processing file: {audio_path}")
             
-            texts.append((new_file, transcription))  # Append the audio file name and transcription
-        
-        except Exception as e:
-            print(f"{TAG} Error transcribing {new_file}: {e}")
+            # Transcribe the audio file using Whisper
+            try:
+                result = model_whisper.transcribe(audio_path)
+                transcription = result['text']
+                print(f"Transcription for {audio_file}: {transcription}")
+                
+                texts.append((audio_file, transcription))  # Append the audio file name and transcription
+            
+            except Exception as e:
+                print(f"Error transcribing {audio_file}: {e}")
             
     return texts
 
 
-def process_audio_files(new_file):
+def process_audio_files():
     # Step 1: Process audio files and avoid reprocessing already transcribed files
-    transcriptions = transcribe_audio_files(audio_folder, processed_files_path, new_file)
+    transcriptions = transcribe_audio_files(audio_folder, processed_files_path)
     
     if not transcriptions:
         print(f"{TAG} No new transcriptions were generated.")
