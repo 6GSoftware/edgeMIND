@@ -12,11 +12,15 @@ emultimodal_extracted_data.txt file.
 
 import os
 import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+#from watchdog.observers import Observer
+#from watchdog.events import FileSystemEventHandler
 from audio_processing import process_audio_files
 from pdf_processing import process_pdf_files
 from image_processing import process_image_files
+from dotenv import load_dotenv
+
+# Loads the environment variables from the .env file
+load_dotenv()
 
 TAG = "pre_processing:  "
 
@@ -60,7 +64,6 @@ def update_combined_text_file():
     print(f"{TAG} Combined file updated with the latest content from all individual text files.")
 
 
-'''
 def pre_process_uploaded_file(file_name, file_type):
 
     # Process the file according to its file type
@@ -78,69 +81,4 @@ def pre_process_uploaded_file(file_name, file_type):
         print(f"{TAG} Appending new image data to texts_Image.txt")
 
     # Once processing is done, update the combined text file
-    update_combined_text_file()'
-'''
-
-
-# Define a custom event handler to watch for file changes
-class FileChangeHandler(FileSystemEventHandler):
-    def __init__(self, observer):
-        self.observer = observer
-
-    def on_created(self, event):
-        # Check if a new file was added and process based on folder type
-        if event.is_directory:
-            return
-
-        # Process new audio files if added to the audio folder
-        if event.src_path.startswith(audio_folder):
-            print(f"{TAG} New audio file detected: {event.src_path}")
-            process_audio_files()
-            print(f"{TAG} Appending new audio data to texts_audio.txt")
-
-        # Process new PDF files if added to the PDFs folder
-        elif event.src_path.startswith(pdfs_folder):
-            print(f"New PDF file detected: {event.src_path}")
-            process_pdf_files()
-            print(f"{TAG} Appending new PDF data to texts_pdfs.txt")
-
-        # Process new images if added to the pictures folder
-        elif event.src_path.startswith(images_folder):
-            print(f"New image file detected: {event.src_path}")
-            process_image_files()
-            print(f"{TAG} Appending new image data to texts_Image.txt")
-
-        # Once processing is done, update the combined text file
-        update_combined_text_file()
-
-
-# Function to start the watchdog observer
-def watch_files():
-    # Create an observer object
-    observer = Observer()
-
-    # Create an event handler, pass the observer so we can stop it later
-    event_handler = FileChangeHandler(observer)
-
-    # Schedule the observer to watch the three folders
-    observer.schedule(event_handler, audio_folder, recursive=False)
-    observer.schedule(event_handler, pdfs_folder, recursive=False)
-    observer.schedule(event_handler, images_folder, recursive=False)
-
-    # Start observing the folders
-    observer.start()
-    print("Watching for new file additions...")
-
-    try:
-        # Run the observer until it's stopped
-        observer.join()
-    except KeyboardInterrupt:
-        observer.stop()
-
-    observer.join()
-
-
-# Run the watchdog observer
-if __name__ == "__main__":
-    # Start watching for file changes
-    watch_files()
+    update_combined_text_file()

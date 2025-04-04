@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Loads the environment variables from the .env file
 load_dotenv()
 
-#from pre_processing import pre_process_uploaded_file
+from pre_processing import pre_process_uploaded_file
 #from extracted_text_processing import process_extracted_texts
 #from situational_awareness_faiss import vectorize_and_save_to_vector_db
 
@@ -86,9 +86,9 @@ def save_file(file_name, file):
     file.save(f"{file_path}")
     print(f"{TAG} File saved successfully at: {file_path}")
 
-    ## Process step 2: Extract text from the file and save the exracted text to appropriate file.
-    #pre_process_uploaded_file(file_name, file_type)
-    #print(f"{TAG} Text extracted from the file and saved to appropriate files")
+    # Process step 2: Extract text from the file and save the exracted text to appropriate file.
+    pre_process_uploaded_file(file_name, file_type)
+    print(f"{TAG} Text extracted from the file and saved to appropriate files")
     #
     ## Process step 3: Process the data that was extracted from the uploaded file:
     ## tokenize sentences and save them to appropriate file

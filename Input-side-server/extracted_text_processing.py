@@ -13,6 +13,10 @@ import nltk
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import re
+from dotenv import load_dotenv
+
+# Loads the environment variables from the .env file
+load_dotenv()
 
 TAG = "extracted_text_processing:  "
 
