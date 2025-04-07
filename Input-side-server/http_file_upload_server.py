@@ -12,6 +12,7 @@ in the file processing process.
 from flask import Flask, request
 import os
 from dotenv import load_dotenv
+import threading
 
 # Loads the environment variables from the .env file
 load_dotenv()
@@ -67,24 +68,10 @@ def get_directory_for_file_type(file_type):
 
    return None
 
-
-def save_file(file_name, file):
-    """Save the uploaded file to an appropriate directory"""
-
-    # Determine file type and set the appropriate directory
-    file_type = get_file_type(file_name)
-    directory = get_directory_for_file_type(file_type)
-
-    if directory is None:
-        print("Unknown file type. Skipping file.")
-        return 'Unknown filetype'
-
-    # Create full file path
-    file_path = os.path.join(directory, file_name)
-
-    # Save received file to appropriate folder
-    file.save(f"{file_path}")
-    print(f"{TAG} File saved successfully at: {file_path}")
+'''
+def process_file(**kwargs):
+    file_name = kwargs.get('file_name')
+    file_type = kwargs.get('file_type')
 
     # Process step 2: Extract text from the file and save the exracted text to appropriate file.
     pre_process_uploaded_file(file_name, file_type)
@@ -99,6 +86,25 @@ def save_file(file_name, file):
     #vectorize_and_save_to_vector_db()
     #print(f"{TAG} The texts have been vectorized and saved to the faiss index")
     #print(f"{TAG} Process complete!\n")
+'''
+
+
+def save_file(file_name, file, file_type):
+    """Save the uploaded file to an appropriate directory"""
+
+    # Determine file type and set the appropriate directory
+    directory = get_directory_for_file_type(file_type)
+
+    if directory is None:
+        print("Unknown file type. Skipping file.")
+        return 'Unknown filetype'
+
+    # Create full file path
+    file_path = os.path.join(directory, file_name)
+
+    # Save received file to appropriate folder
+    file.save(f"{file_path}")
+    print(f"{TAG} File saved successfully at: {file_path}")
 
     return 'File uploaded and saved successfully'
 
@@ -115,9 +121,16 @@ def upload_file():
         return {'message': 'No selected file'}, 400
     
     file_name = file.filename
-    
-    # Save the file and go through the process for processing the uploaded file
-    response_message = save_file(file_name, file)
+
+    # Determine the type of the file
+    file_type = get_file_type(file_name)
+
+    # Save the uploaded file
+    response_message = save_file(file_name, file, file_type)
+
+    #thread = threading.Thread(target=process_file, kwargs={
+    #                'file_name': file_name, 'file_type': file_type})
+    #thread.start()
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200
