@@ -79,14 +79,14 @@ def process_file(**kwargs):
     #
     # Process step 3: Process the data that was extracted from the uploaded file:
     # tokenize sentences and save them to appropriate file
-    #process_extracted_texts()
-    #print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
-    #
-    ## Process step 4:
-    #vectorize_and_save_to_vector_db()
-    #print(f"{TAG} The texts have been vectorized and saved to the faiss index")
-    #
-    #print(f"{TAG} Process complete!\n")
+    process_extracted_texts()
+    print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
+    
+    # Process step 4:
+    vectorize_and_save_to_vector_db()
+    print(f"{TAG} The texts have been vectorized and saved to the faiss index")
+    
+    print(f"{TAG} Process complete!\n")
 
 
 def save_file(file_name, file, file_type):

@@ -25,18 +25,17 @@ load_dotenv()
 TAG = "pre_processing:  "
 
 # Define the folder paths for audio, PDFs, and images
-#audio_folder = './Audio'
-#pdfs_folder = './pdfs'
-#images_folder = './Pictures'
+audio_folder = './Audio'
+pdfs_folder = './pdfs'
+images_folder = './Pictures'
 
 # Define paths to the text files
-#audio_text_file = os.path.join(audio_folder, 'texts_audio.txt')
-#pdfs_text_file = os.path.join(pdfs_folder, 'texts_pdfs.txt')
-#images_text_file = os.path.join(images_folder, 'texts_Image.txt')
-
+audio_text_file = os.path.join(audio_folder, 'texts_audio.txt')
+pdfs_text_file = os.path.join(pdfs_folder, 'texts_pdfs.txt')
+images_text_file = os.path.join(images_folder, 'texts_Image.txt')
 combined_text_file = './emultimodal_extracted_data.txt'
 
-'''
+
 def update_combined_text_file():
     """Function to append new content from individual text files to the combined file."""
     
@@ -63,7 +62,7 @@ def update_combined_text_file():
                 outfile.write("\n\n")
     
     print(f"{TAG} Combined file updated with the latest content from all individual text files.")
-'''
+
 
 def pre_process_uploaded_file(file_name, file_type):
 
@@ -82,4 +81,4 @@ def pre_process_uploaded_file(file_name, file_type):
         print(f"{TAG} Appending new image data to texts_Image.txt")
 
     # Once processing is done, update the combined text file
-    #update_combined_text_file()
+    update_combined_text_file()
