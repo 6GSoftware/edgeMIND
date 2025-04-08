@@ -34,7 +34,7 @@ TAG = "pre_processing:  "
 #pdfs_text_file = os.path.join(pdfs_folder, 'texts_pdfs.txt')
 #images_text_file = os.path.join(images_folder, 'texts_Image.txt')
 
-combined_text_file = './emultimodal_extracted_data.txt'
+#combined_text_file = './emultimodal_extracted_data.txt'
 
 '''
 def update_combined_text_file():
