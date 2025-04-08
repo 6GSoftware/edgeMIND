@@ -20,8 +20,10 @@ TAG = "pdf_processing:  "
 # Set the folder path for the PDF files
 pdf_folder = "./pdfs"
 # Specify output file and processed files list
-output_file = "./pdfs/texts_pdfs.txt"
-processed_files_list = "./pdfs/processed_files.txt"
+#output_file = "./pdfs/texts_pdfs.txt"
+#processed_files_list = "./pdfs/processed_files.txt"
+
+combined_text_file = './test_emultimodal_extracted_data.txt'
 
 LLAMAPARSE_API_KEY = os.environ.get("LLAMAPARSE_API_KEY", None)
 if LLAMAPARSE_API_KEY is None: 
@@ -35,15 +37,16 @@ parser = LlamaParse(
 )
 
 # Function to process the new pdf file
-def process_pdfs_with_llamaparse(processed_files, new_file):
+def process_pdfs_with_llamaparse(new_file):
+#def process_pdfs_with_llamaparse(processed_files, new_file):
     """Use LlamaParse to extract text from PDF files, skipping already processed files."""
     texts = []
     newly_processed_files = []
 
     if new_file.endswith(".pdf"):
-        if new_file in processed_files:
-            print(f"{TAG} Skipping already processed file: {new_file}")
-            return None
+        #if new_file in processed_files:
+        #    print(f"{TAG} Skipping already processed file: {new_file}")
+        #    return None
         
         pdf_path = os.path.join(pdf_folder, new_file)
         try:
@@ -69,28 +72,31 @@ def process_pdfs_with_llamaparse(processed_files, new_file):
 def process_pdf_files(new_file):
     """Process PDFs and save extracted data to a .txt file"""
     
-    # Step 1: Load processed files from the list
-    if os.path.exists(processed_files_list):
-        with open(processed_files_list, 'r') as f:
-            processed_files = {line.strip() for line in f}
-    else:
-        processed_files = set()
+    ## Step 1: Load processed files from the list
+    #if os.path.exists(processed_files_list):
+    #    with open(processed_files_list, 'r') as f:
+    #        processed_files = {line.strip() for line in f}
+    #else:
+    #    processed_files = set()
 
     # Step 2: Process PDF files and extract text
-    extracted_texts, newly_processed_files = process_pdfs_with_llamaparse(processed_files, new_file)
+    extracted_texts, newly_processed_files = process_pdfs_with_llamaparse(new_file)
+    #extracted_texts, newly_processed_files = process_pdfs_with_llamaparse(processed_files, new_file)
 
     # Step 3: Save the extracted data to a .txt file
     if extracted_texts:
-        with open(output_file, 'a', encoding='utf-8') as f:
+        #with open(output_file, 'a', encoding='utf-8') as f:
+        with open(combined_text_file, 'a', encoding='utf-8') as f:
             for pdf_file, text in extracted_texts:
                 if isinstance(text, str):  # Ensure it's a string
                     f.write(f"Response for {pdf_file}:\n")  # Save the PDF file name
                     f.write(text + "\n\n")  # Save the extracted text
 
-    # Step 4: Update the processed files list
-    if newly_processed_files:
-        with open(processed_files_list, 'a') as f:
-            for file in newly_processed_files:
-                f.write(file + '\n')
+    ## Step 4: Update the processed files list
+    #if newly_processed_files:
+    #    with open(processed_files_list, 'a') as f:
+    #        for file in newly_processed_files:
+    #            f.write(file + '\n')
 
-    print(f"{TAG} Extracted data has been saved to {output_file}. Processed files list has been updated.")
+    print(f"{TAG} Extracted data has been saved to {combined_text_file}. Processed files list has been updated.")
+    #print(f"{TAG} Extracted data has been saved to {output_file}. Processed files list has been updated.")
