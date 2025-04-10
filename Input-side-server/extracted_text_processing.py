@@ -23,8 +23,10 @@ TAG = "extracted_text_processing:  "
 # Load the Sentence Transformer model
 model = SentenceTransformer("all-mpnet-base-v2")
 # File paths
-file_path = './emultimodal_extracted_data.txt'
-output_file_path = './Pre_processed_text.txt'
+#file_path = './emultimodal_extracted_data.txt'
+#output_file_path = './Pre_processed_text.txt'
+file_path = './test_emultimodal_extracted_data.txt'
+output_file_path = './test_Pre_processed_text.txt'
 
 
 def preprocess_sentence(sentence):

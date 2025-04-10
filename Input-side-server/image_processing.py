@@ -22,8 +22,6 @@ TAG = "image_processing:  "
 
 # Define the folder containing images and the output text file
 image_folder = r'./Pictures'
-#output_file = r'./Pictures/texts_Image.txt'
-#processed_files_path = r'./Pictures/processed_images.txt'
 
 combined_text_file = './test_emultimodal_extracted_data.txt'
 
@@ -51,19 +49,8 @@ def process_image_files(new_file):
     #model = AutoModelForCausalLM.from_pretrained("./phi3_vision", trust_remote_code=True)
     #processor = AutoProcessor.from_pretrained("./phi3_vision")
 
-    ## Step 1: Read processed file names from the processed_files.txt to avoid reprocessing
-    #processed_files = set()
-    #if os.path.exists(processed_files_path):
-    #    with open(processed_files_path, 'r', encoding='utf-8') as f:
-    #        for line in f:
-    #            processed_files.add(line.strip())  # Each line represents a processed file name
-
     # Process each image individually
     if new_file.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
-        #if new_file in processed_files:
-        #    print(f"{TAG} Skipping already processed file: {new_file}")
-        #    return
-
         file_path = os.path.join(image_folder, new_file)
 
         # Open the image
@@ -113,13 +100,8 @@ def process_image_files(new_file):
         )[0]
 
         # Save the response to the output file
-        #with open(output_file, 'a', encoding='utf-8') as f:
         with open(combined_text_file, 'a', encoding='utf-8') as f:
             f.write(f"Response for {new_file}:\n")  # Store the image file name
             f.write(response + "\n\n")              # Store the response
-
-        ## Step 2: Update processed_images.txt to avoid reprocessing the same image
-        #with open(processed_files_path, 'a', encoding='utf-8') as f:
-        #    f.write(new_file + '\n')  # Save the image file name
 
         print(f"{TAG} Processed and saved response for {new_file}")
