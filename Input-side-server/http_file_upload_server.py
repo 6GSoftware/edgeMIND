@@ -76,7 +76,7 @@ def process_file(**kwargs):
     # Process step 2: Extract text from the file and save the exracted text to appropriate file.
     pre_process_uploaded_file(file_name, file_type)
     print(f"{TAG} Text extracted from the file and saved to appropriate files")
-    #
+    
     # Process step 3: Process the data that was extracted from the uploaded file:
     # tokenize sentences and save them to appropriate file
     process_extracted_texts()

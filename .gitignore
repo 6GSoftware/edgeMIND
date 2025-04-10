@@ -43,7 +43,6 @@
 /Input-side-server/multimodal_faiss_index.index
 /Input-side-server/Pre_processed_text.txt
 /Input-side-server/topic_metadata_with_names.txt
-/Input-side-server/test_emultimodal_extracted_data.txt
 
 # Other files
 workflow_documentation.md
