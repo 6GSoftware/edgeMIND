@@ -20,11 +20,10 @@ TAG = "audio_processing:  "
 # Folder with audio files
 audio_folder = './Audio'
 
-combined_text_file = './test_emultimodal_extracted_data.txt'
+combined_text_file = './emultimodal_extracted_data.txt'
 
 
 def transcribe_audio_files(audio_folder, new_file):
-#def transcribe_audio_files(audio_folder, processed_files_path, new_file):
     """Load and process audio files, returning the transcriptions."""
     
     # Step 1: Initialize Whisper model for transcription

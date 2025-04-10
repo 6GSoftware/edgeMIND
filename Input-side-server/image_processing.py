@@ -23,7 +23,7 @@ TAG = "image_processing:  "
 # Define the folder containing images and the output text file
 image_folder = r'./Pictures'
 
-combined_text_file = './test_emultimodal_extracted_data.txt'
+combined_text_file = './emultimodal_extracted_data.txt'
 
 def process_image_files(new_file):
     # Set model ID and load model and processor
