@@ -14,6 +14,10 @@ from datetime import datetime
 import json
 import faiss
 from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
+
+# Loads the environment variables from the .env file
+load_dotenv()
 
 TAG = "situational_awareness_faiss:  "
 

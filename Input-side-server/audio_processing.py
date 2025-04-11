@@ -10,15 +10,20 @@ and the name of the file is saved in the processed_files.txt file to prevent pro
 
 import os
 import whisper  # Whisper model for audio transcription
+from dotenv import load_dotenv
+
+# Loads the environment variables from the .env file
+load_dotenv()
 
 TAG = "audio_processing:  "
 
 # Folder with audio files
 audio_folder = './Audio'
-transcription_file_path = os.path.join(audio_folder, 'texts_audio.txt')  # File to store transcriptions
-processed_files_path = os.path.join(audio_folder, 'processed_files.txt')  # File to track processed files
 
-def transcribe_audio_files(audio_folder, processed_files_path, new_file):
+combined_text_file = './emultimodal_extracted_data.txt'
+
+
+def transcribe_audio_files(audio_folder, new_file):
     """Load and process audio files, returning the transcriptions."""
     
     # Step 1: Initialize Whisper model for transcription
@@ -27,18 +32,8 @@ def transcribe_audio_files(audio_folder, processed_files_path, new_file):
     
     texts = []
 
-    # Step 2: Read existing processed file names to avoid reprocessing
-    processed_files = set()
-    if os.path.exists(processed_files_path):
-        with open(processed_files_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                processed_files.add(line.strip())  # Each line represents a processed file name
-
     # Step 3: Transcribe audio files and append transcriptions to texts
     if new_file.endswith('.mp3') or new_file.endswith('.wav'):
-        if new_file in processed_files:
-            print(f"{TAG} Skipping already processed file: {new_file}")
-            return None
 
         new_file_path = os.path.join(audio_folder, new_file)
         print(f"{TAG} Processing file: {new_file_path}")
@@ -59,20 +54,15 @@ def transcribe_audio_files(audio_folder, processed_files_path, new_file):
 
 def process_audio_files(new_file):
     # Step 1: Process audio files and avoid reprocessing already transcribed files
-    transcriptions = transcribe_audio_files(audio_folder, processed_files_path, new_file)
+    transcriptions = transcribe_audio_files(audio_folder, new_file)
     
     if not transcriptions:
         print(f"{TAG} No new transcriptions were generated.")
     else:
         # Step 2: Save new transcriptions and update the processed files list
-        with open(transcription_file_path, 'a', encoding='utf-8') as f:
+        with open(combined_text_file, 'a', encoding='utf-8') as f:
             for audio_file, transcription in transcriptions:
                 f.write(f"Transcription for {audio_file}:\n")  # Save the audio file name
                 f.write(transcription + '\n\n')  # Save the transcription
 
-        # Step 3: Update processed files list
-        with open(processed_files_path, 'a', encoding='utf-8') as f:
-            for audio_file, _ in transcriptions:
-                f.write(audio_file + '\n')  # Save the audio file name to avoid reprocessing
-
-        print(f"{TAG} Processing complete. New transcriptions saved to '{transcription_file_path}', and processed files updated.")
+    print(f"{TAG} Processing complete. New transcriptions saved to '{combined_text_file}', and processed files updated.")
