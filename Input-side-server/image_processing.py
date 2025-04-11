@@ -14,6 +14,8 @@ from PIL import Image
 import os
 from transformers import AutoModelForCausalLM, AutoProcessor
 
+from download_phi_3_5_vision import model, processor
+
 TAG = "image_processing:  "
 
 # Define the folder containing images and the output text file
@@ -22,29 +24,7 @@ output_file = r'./Pictures/texts_Image.txt'
 processed_files_path = r'./Pictures/processed_images.txt'
 
 def process_image_files(new_file):
-    # Set model ID and load model and processor
-    model_id = "microsoft/Phi-3.5-vision-instruct"
-    #model_id = "./phi3_vision"
-
-    # Load the model
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        device_map="cpu",
-        trust_remote_code=True,
-        torch_dtype="auto",
-        _attn_implementation='eager'
-    )
     
-    # Load the processor
-    processor = AutoProcessor.from_pretrained(
-        model_id, 
-        trust_remote_code=True, 
-        num_crops=4
-    )
-
-    #model = AutoModelForCausalLM.from_pretrained("./phi3_vision", trust_remote_code=True)
-    #processor = AutoProcessor.from_pretrained("./phi3_vision")
-
     # Step 1: Read processed file names from the processed_files.txt to avoid reprocessing
     processed_files = set()
     if os.path.exists(processed_files_path):

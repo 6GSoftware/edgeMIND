@@ -29,6 +29,7 @@
 # The LLM model files
 /LLMquery-server-text/saved_LLM_model/
 /LLMquery-server-audio/saved_LLM_model/
+/Input-side-server/Phi-3.5-vision/
 
 # From Input-side-server 
 /Input-side-server/__pycache__
@@ -47,3 +48,5 @@
 # Other files
 workflow_documentation.md
 .env
+.venv
+.venv2
