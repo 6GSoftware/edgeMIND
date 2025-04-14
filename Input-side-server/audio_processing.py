@@ -55,6 +55,7 @@ def transcribe_audio_files(audio_folder, new_file):
 def process_audio_files(new_file):
     # Step 1: Process audio files and avoid reprocessing already transcribed files
     transcriptions = transcribe_audio_files(audio_folder, new_file)
+    processed_file_content = ""
     
     if not transcriptions:
         print(f"{TAG} No new transcriptions were generated.")
@@ -62,7 +63,10 @@ def process_audio_files(new_file):
         # Step 2: Save new transcriptions and update the processed files list
         with open(combined_text_file, 'a', encoding='utf-8') as f:
             for audio_file, transcription in transcriptions:
+                processed_file_content = f"Transcription for {audio_file}:\n" + transcription + "\n\n"
                 f.write(f"Transcription for {audio_file}:\n")  # Save the audio file name
                 f.write(transcription + '\n\n')  # Save the transcription
 
     print(f"{TAG} Processing complete. New transcriptions saved to '{combined_text_file}', and processed files updated.")
+
+    return processed_file_content

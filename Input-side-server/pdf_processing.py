@@ -37,7 +37,7 @@ parser = LlamaParse(
 def process_pdfs_with_llamaparse(new_file):
     """Use LlamaParse to extract text from PDF files, skipping already processed files."""
     texts = []
-    newly_processed_files = []
+    #newly_processed_files = []
 
     if new_file.endswith(".pdf"):
         pdf_path = os.path.join(pdf_folder, new_file)
@@ -53,26 +53,32 @@ def process_pdfs_with_llamaparse(new_file):
                 texts.append((new_file, doc.text))  # Store the PDF file name with the text
 
             # Add the successfully processed file to the list
-            newly_processed_files.append(new_file)
+            #newly_processed_files.append(new_file)
 
         except Exception as e:
             print(f"{TAG} Error while parsing the file '{pdf_path}': {e}")
 
-    return texts, newly_processed_files
+    #return texts, newly_processed_files
+    return texts
 
 
 def process_pdf_files(new_file):
     """Process PDFs and save extracted data to a .txt file"""
 
     # Step 2: Process PDF files and extract text
-    extracted_texts, newly_processed_files = process_pdfs_with_llamaparse(new_file)
+    extracted_texts = process_pdfs_with_llamaparse(new_file)
+    #extracted_texts, newly_processed_files = process_pdfs_with_llamaparse(new_file)
+    processed_file_content = ""
 
     # Step 3: Save the extracted data to a .txt file
     if extracted_texts:
         with open(combined_text_file, 'a', encoding='utf-8') as f:
             for pdf_file, text in extracted_texts:
                 if isinstance(text, str):  # Ensure it's a string
+                    processed_file_content = f"Response for {pdf_file}:\n" + text + "\n\n"
                     f.write(f"Response for {pdf_file}:\n")  # Save the PDF file name
                     f.write(text + "\n\n")  # Save the extracted text
 
     print(f"{TAG} Extracted data has been saved to {combined_text_file}. Processed files list has been updated.")
+
+    return processed_file_content

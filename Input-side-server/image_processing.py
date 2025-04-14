@@ -79,9 +79,13 @@ def process_image_files(new_file):
             clean_up_tokenization_spaces=False
         )[0]
 
+        processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
+
         # Save the response to the output file
         with open(combined_text_file, 'a', encoding='utf-8') as f:
             f.write(f"Response for {new_file}:\n")  # Store the image file name
             f.write(response + "\n\n")
 
         print(f"{TAG} Processed and saved response for {new_file}")
+
+        return processed_file_content

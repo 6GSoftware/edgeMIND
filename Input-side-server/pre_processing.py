@@ -25,16 +25,19 @@ TAG = "pre_processing:  "
 
 def pre_process_uploaded_file(file_name, file_type):
     """Process the upploaded file according to its file type"""
+    processed_file_content = ""
     
     if file_type == "audio":
         print(f"{TAG} Processing audio file...")
-        process_audio_files(file_name)
+        processed_file_content = process_audio_files(file_name)
         print(f"{TAG} Appending new audio data to texts_audio.txt")
     elif file_type == "pdf":
         print(f"{TAG} Processing PDF file...")
-        process_pdf_files(file_name)
+        processed_file_content = process_pdf_files(file_name)
         print(f"{TAG} Appending new PDF data to texts_pdfs.txt")
     elif file_type == "image":
         print(f"{TAG} Processing image file...")
-        process_image_files(file_name)
+        processed_file_content = process_image_files(file_name)
         print(f"{TAG} Appending new image data to texts_Image.txt")
+
+    return processed_file_content
