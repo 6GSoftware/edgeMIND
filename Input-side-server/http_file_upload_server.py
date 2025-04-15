@@ -74,15 +74,16 @@ def process_file(**kwargs):
     file_type = kwargs.get('file_type')
 
     # Process step 2: Extract text from the file and save the exracted text to appropriate file.
-    processed_file = pre_process_uploaded_file(file_name, file_type)
+    processed_file_content = pre_process_uploaded_file(file_name, file_type)
     print(f"{TAG} Text extracted from the file and saved to appropriate files")
-    print(f"{TAG} The processed file is: {processed_file}")
+    print(f"{TAG} The content of the processed file is now: {processed_file_content}")
     
     # Process step 3: Process the data that was extracted from the uploaded file:
     # tokenize sentences and save them to appropriate file
-    #process_extracted_texts()
-    #print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
-    #
+    processed_file_content = process_extracted_texts(processed_file_content)
+    print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
+    print(f"{TAG} The content of the processed file is now: {processed_file_content}")
+    
     ## Process step 4:
     #vectorize_and_save_to_vector_db()
     #print(f"{TAG} The texts have been vectorized and saved to the faiss index")

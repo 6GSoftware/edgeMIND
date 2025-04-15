@@ -9,6 +9,7 @@ How this module works:
 
 import numpy as np
 import lda
+import requests
 from sklearn.feature_extraction.text import CountVectorizer
 from datetime import datetime
 import json
@@ -20,6 +21,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TAG = "situational_awareness_faiss:  "
+VECTOR_DB_URL = "http://localhost:8000/write" # Use in testing outside container
+#VECTOR_DB_URL = "http://vector_db_server:8000/write"
 
 file_path = './Pre_processed_text.txt'
 output_file_path = './topic_metadata_with_names.txt'
@@ -34,6 +37,86 @@ def create_chunks(text, chunk_size=500, chunk_overlap=20):
         if chunk:
             chunks.append(chunk)
     return chunks
+
+
+def vectorize_and_send_to_database(file_contents):
+    ## Step 1: Load the text data from the file
+    #with open(file_path, 'r') as file:
+    #    documents = file.readlines()
+
+    # Step 4: Preprocess the text: convert it to a document-term matrix
+    # First, chunk the documents before vectorizing
+    chunks = []
+    for content in file_contents:
+        # Step 3: Define a function to chunk text before assigning topics
+        content_chunks = create_chunks(content.strip())
+        chunks.extend(content_chunks)  # Add all chunks from this document to the overall chunk list
+
+    vectorizer = CountVectorizer(stop_words='english')
+    X = vectorizer.fit_transform(chunks)  # Use chunks for topic modeling
+
+    # Step 5: Extract vocabulary
+    vocab = vectorizer.get_feature_names_out()
+
+    # Step 6: Fit the LDA model using the chunks
+    model = lda.LDA(n_topics=10, n_iter=1500, random_state=1)
+    model.fit(X)
+
+    # Step 7: Get the topic-word distribution and create meaningful topic names
+    n_top_words = 8
+    topic_names = []
+    topic_word = model.topic_word_
+
+    for i, topic_dist in enumerate(topic_word):
+        # Get the top words for the topic
+        topic_words = np.array(vocab)[np.argsort(topic_dist)][:-(n_top_words+1):-1]
+        topic_name = " ".join(topic_words)
+        topic_names.append(topic_name)  # Store the topic name
+        print(f'{TAG} Topic {i}: {topic_name}')
+
+    # Step 8: Get the document-topic distribution for the chunks
+    doc_topic = model.doc_topic_
+
+    # Step 9: Prepare metadata to save
+    metadata = []
+    timestamp = datetime.now().isoformat()
+
+    # Initialize the embedding model
+    embedding_function = SentenceTransformer('all-mpnet-base-v2')
+
+    # Step 10: Generate embeddings and collect metadata for each chunk
+    embeddings = []
+    for i, chunk in enumerate(chunks):
+        # Get the top topic index and name for each chunk
+        top_topic_idx = doc_topic[i].argmax()  # Get the top topic index for the chunk
+        top_topic_name = topic_names[top_topic_idx]  # Use the corresponding topic name
+
+        # Generate embedding for each chunk
+        embedding = embedding_function.encode([chunk]).astype('float16')[0]  # Get the first (and only) embedding
+
+        # Collect embeddings and metadata
+        embeddings.append(embedding)  # Store the embedding for FAISS
+
+        # Store the metadata with the topic name
+        metadata.append({
+            "timestamp": timestamp,
+            "topic": top_topic_name,  # Store the topic name here
+            "text": chunk,
+            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
+        })
+
+    # Data to be sent
+    post_data = {
+        'embeddings': embeddings,
+        'metadata': metadata
+    }
+
+    # Defining content type for the payload
+    headers = {'Content-type': 'application/json'}
+    # Post the user question to the vector database server and get the query result as response
+    response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+    response_as_json = response.json()
+    print(f"The received response is: {response_as_json['message']}")
 
 
 def vectorize_and_save_to_vector_db():

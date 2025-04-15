@@ -2,6 +2,7 @@ import faiss
 import json
 import logging
 #from pydantic import BaseModel
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from flask import Flask, request
 
@@ -13,6 +14,32 @@ DB_SERVER_IP = "---"
 
 index_file_path = 'multimodal_faiss_index.index'
 metadata_file_path = 'topic_metadata_with_names.txt'
+
+
+def write_to_faiss_index(embeddings, metadata):
+    # Load FAISS index
+    index = load_faiss_index(index_file_path)
+    # Get embedding dimension size
+    new_dimension = embeddings[0].shape[0]
+    # Get index dimension size
+    index_dimension = index.d
+
+    # If FAISS index could not be loaded, create a new one
+    if not index:
+        index = faiss.IndexFlatL2(new_dimension)  # Create a FAISS index using L2 distance
+
+    # Save FAISS index using the embeddings
+    index.add(np.array(embeddings))  # Add embeddings to FAISS index
+
+    # Save FAISS index to a file
+    faiss.write_index(index, 'multimodal_faiss_index.index')
+
+    # Step 12: Save metadata to a text file in JSON format
+    with open(metadata_file_path, 'a') as f:
+        for entry in metadata:
+            f.write(json.dumps(entry) + '\n')  # Write each entry as a JSON string
+
+    print(f"FAISS index saved and metadata has been saved to '{metadata_file_path}' with {len(metadata)} entries.")
 
 
 def load_metadata(file_path):
@@ -58,7 +85,16 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
 @app.route('/write', methods=['POST'])
 def write_to_database():
     """Write new data to the vector database."""
-    ...
+    request_data = request.get_json()
+    embeddings = request_data['embeddings']
+    metadata = request_data['metadata']
+    print(f"Received:\n{embeddings}\nand\n{metadata}")
+
+    write_to_faiss_index(embeddings, metadata)
+
+    response = "Data received!"
+
+    return {'message': response}, 200
 
 
 @app.route('/search', methods=['POST'])

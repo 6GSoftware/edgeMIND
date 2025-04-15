@@ -9,15 +9,19 @@ Then, sentence embeddings are computed from the tokenized sentences. The tokeniz
 Pre_processed_text.txt file.
 """
 
+import socket
 import nltk
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import re
 from dotenv import load_dotenv
+from situational_awareness_faiss import vectorize_and_send_to_database
 
 # Loads the environment variables from the .env file
 load_dotenv()
 
+HOST = "---"
+PORT = 6500
 TAG = "extracted_text_processing:  "
 
 # Load the Sentence Transformer model
@@ -33,13 +37,15 @@ def preprocess_sentence(sentence):
     return sentence
 
 
-def process_extracted_texts():
+def process_extracted_texts(file_content):
+    processed_file_content = ""
     # Step 1: Read the text file
-    with open(file_path, 'r', encoding='utf-8') as file:
-        text_data = file.read()
+    #with open(file_path, 'r', encoding='utf-8') as file:
+    #    text_data = file.read()
 
     # Step 2: Tokenize sentences using nltk's sentence tokenizer
-    sentences = nltk.tokenize.sent_tokenize(text_data)
+    sentences = nltk.tokenize.sent_tokenize(file_content)
+    #sentences = nltk.tokenize.sent_tokenize(text_data)
 
     # Step 3: Preprocess each sentence: lowercase and remove extra spaces
     cleaned_sentences = [preprocess_sentence(sentence) for sentence in sentences]
@@ -48,9 +54,40 @@ def process_extracted_texts():
     embeddings = model.encode(cleaned_sentences)
 
     # Step 5: Save sentences and embeddings to a .txt file
-    with open(output_file_path, 'w', encoding='utf-8') as output_file:
+    with open(output_file_path, 'a', encoding='utf-8') as output_file:
         for sentence, embedding in zip(cleaned_sentences, embeddings):
             output_file.write(f"{sentence}\n")
+            processed_file_content = processed_file_content + f"{sentence}\n"
             #output_file.write(f"Embedding: {np.array2string(embedding, precision=4, separator=',')}\n\n")
 
     print(f"{TAG} Cleaned sentences and embeddings saved to {output_file_path}")
+
+    return processed_file_content
+
+
+def run_server():
+    # Start a server for receiving processed file contents from the individual processing units:
+    # audio, image and pdf processing
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        s.listen()
+        conn, addr = s.accept()
+        with conn:
+            print(f"{TAG} Connection established with {addr}")
+            while True:
+                # Receive data from audio, image or pdf processing unit
+                processed_file_contents = conn.recv(1024)
+                processed_file_contents = processed_file_contents.decode("utf-8")
+                print(f"{TAG} Received data: {processed_file_contents}")
+                if not processed_file_contents:
+                    break
+                # Send a response message
+                conn.sendall("Data was received!")
+                conn.close()
+                # Process the file contents further
+                processed_file_contents = process_extracted_texts(processed_file_contents)
+                vectorize_and_send_to_database(processed_file_contents)
+
+
+if __name__ == "__main__":
+    run_server()
