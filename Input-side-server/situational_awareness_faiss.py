@@ -26,6 +26,7 @@ VECTOR_DB_URL = "http://localhost:8000/write" # Use in testing outside container
 
 file_path = './Pre_processed_text.txt'
 output_file_path = './topic_metadata_with_names.txt'
+topic_list_path = './topic_list.json'
 
 
 def create_chunks(text, chunk_size=500, chunk_overlap=20):
@@ -46,14 +47,17 @@ def vectorize_and_send_to_database(file_contents):
 
     # Step 4: Preprocess the text: convert it to a document-term matrix
     # First, chunk the documents before vectorizing
-    chunks = []
+
+    new_chunks = []
     for content in file_contents:
         # Step 3: Define a function to chunk text before assigning topics
-        content_chunks = create_chunks(content.strip())
-        chunks.extend(content_chunks)  # Add all chunks from this document to the overall chunk list
+        cont_chunks = create_chunks(content.strip())
+        new_chunks.extend(cont_chunks)
+
+    print(f"{TAG} Number of chunks: {len(new_chunks)}")
 
     vectorizer = CountVectorizer(stop_words='english')
-    X = vectorizer.fit_transform(chunks)  # Use chunks for topic modeling
+    X = vectorizer.fit_transform(new_chunks)  # Use chunks for topic modeling
 
     # Step 5: Extract vocabulary
     vocab = vectorizer.get_feature_names_out()
@@ -79,14 +83,14 @@ def vectorize_and_send_to_database(file_contents):
 
     # Step 9: Prepare metadata to save
     metadata = []
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now().isoformat()  # Calculate timestamp FOR THE NEW DATA ONLY!
 
     # Initialize the embedding model
     embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
     # Step 10: Generate embeddings and collect metadata for each chunk
     embeddings = []
-    for i, chunk in enumerate(chunks):
+    for i, chunk in enumerate(new_chunks):
         # Get the top topic index and name for each chunk
         top_topic_idx = doc_topic[i].argmax()  # Get the top topic index for the chunk
         top_topic_name = topic_names[top_topic_idx]  # Use the corresponding topic name
@@ -163,7 +167,7 @@ def vectorize_and_save_to_vector_db():
 
     # Step 9: Prepare metadata to save
     metadata = []
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now().isoformat()  # Calculate timestamp FOR THE NEW DATA ONLY!
 
     # Initialize the embedding model
     embedding_function = SentenceTransformer('all-mpnet-base-v2')
@@ -189,17 +193,18 @@ def vectorize_and_save_to_vector_db():
             "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
         })
 
+    
     # Step 11: Save FAISS index using the embeddings
     dimension = embeddings[0].shape[0]  # Embedding dimension size
     index = faiss.IndexFlatL2(dimension)  # Create a FAISS index using L2 distance
     index.add(np.array(embeddings))  # Add embeddings to FAISS index
-
+    
     # Save FAISS index to a file
     faiss.write_index(index, 'multimodal_faiss_index.index')
-
+    
     # Step 12: Save metadata to a text file in JSON format
     with open(output_file_path, 'w') as f:
         for entry in metadata:
             f.write(json.dumps(entry) + '\n')  # Write each entry as a JSON string
-
+    
     print(f"{TAG} FAISS index saved and metadata has been saved to '{output_file_path}' with {len(metadata)} entries.")
