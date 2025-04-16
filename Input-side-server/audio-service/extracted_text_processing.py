@@ -13,18 +13,25 @@ import nltk
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import re
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
-load_dotenv()
+#load_dotenv()
+
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    print("[NLTK] 'punkt' not found. Downloading now...")
+    nltk.download('punkt_tab')
 
 TAG = "extracted_text_processing:  "
 
 # Load the Sentence Transformer model
 model = SentenceTransformer("all-mpnet-base-v2")
+
 # File paths
-file_path = './emultimodal_extracted_data.txt'
-output_file_path = './Pre_processed_text.txt'
+file_path = '/app/shared-files/emultimodal_extracted_data.txt'
+output_file_path = '/app/shared-files/Pre_processed_text.txt'
 
 
 def preprocess_sentence(sentence):

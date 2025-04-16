@@ -1,6 +1,6 @@
 # Unnecessary files and directories
-/__pycache__/
-/Audio/
+__pycache__
+Audio
 /check-these/
 /Chome/
 /LLMquery-server-text/testing/
@@ -9,12 +9,13 @@
 /extracted_data/
 /model/
 /pdfs/
-/phi3_vision/
-/Pictures/
+Phi-3.5-vision
+Pictures
 
 # Virtual environment(s)
 /env/
 /venv/
+**/.venv3/
 
 # Metadata and vector database files
 /edgeMIND-vector-db-server/multimodal_faiss_index.index
@@ -27,23 +28,22 @@
 /LLMquery-server-text/.env
 
 # The LLM model files
-/LLMquery-server-text/saved_LLM_model/
-/LLMquery-server-audio/saved_LLM_model/
+**/saved_LLM_model/
 /Input-side-server/Phi-3.5-vision/
 
 # From Input-side-server 
 /Input-side-server/__pycache__
 /Input-side-server/Audio/
 /Input-side-server/old_stuff
-/Input-side-server/pdfs/
+pdfs/
 /Input-side-server/phi3_vision/
 /Input-side-server/Pictures/
 /Input-side-server/uploads/
 /Input-side-server/file_upload_server.py
-/Input-side-server/emultimodal_extracted_data.txt
-/Input-side-server/multimodal_faiss_index.index
-/Input-side-server/Pre_processed_text.txt
-/Input-side-server/topic_metadata_with_names.txt
+emultimodal_extracted_data.txt
+multimodal_faiss_index.index
+Pre_processed_text.txt
+topic_metadata_with_names.txt
 
 # Other files
 workflow_documentation.md

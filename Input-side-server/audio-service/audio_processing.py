@@ -10,10 +10,10 @@ and the name of the file is saved in the processed_files.txt file to prevent pro
 
 import os
 import whisper  # Whisper model for audio transcription
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
-load_dotenv()
+#load_dotenv()
 
 TAG = "audio_processing:  "
 

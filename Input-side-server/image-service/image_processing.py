@@ -13,10 +13,10 @@ processed_images.txt file to prevent processing the same file again.
 from PIL import Image
 import os
 from transformers import AutoModelForCausalLM, AutoProcessor
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
-load_dotenv()
+#load_dotenv()
 
 from download_phi_3_5_vision import model, processor
 
@@ -25,7 +25,8 @@ TAG = "image_processing:  "
 # Define the folder containing images and the output text file
 image_folder = r'./Pictures'
 
-combined_text_file = './emultimodal_extracted_data.txt'
+combined_text_file = '/app/shared-files/emultimodal_extracted_data.txt'
+
 
 def process_image_files(new_file):
 

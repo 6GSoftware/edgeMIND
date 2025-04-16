@@ -1,0 +1,15 @@
+# Requirements from image-service. TODO: Check if there is some unnecessary
+Flask==3.1.0
+pillow==10.4.0
+sentence-transformers==3.1.1
+transformers==4.45.1
+torch==2.6.0
+accelerate==0.34.2
+torchvision==0.21.0
+nltk==3.9.1
+lda==3.0.2
+faiss-cpu==1.8.0.post1
+huggingface-hub==0.25.1
+
+# Specifically for audio-service:
+openai-whisper @ git+https://github.com/openai/whisper.git@25639fc17ddc013d56c594bfbf7644f2185fad84

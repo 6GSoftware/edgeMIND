@@ -14,16 +14,18 @@ from datetime import datetime
 import json
 import faiss
 from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
-load_dotenv()
+#load_dotenv()
 
 TAG = "situational_awareness_faiss:  "
 
-file_path = './Pre_processed_text.txt'
-output_file_path = './topic_metadata_with_names.txt'
+file_path = '/app/shared-files/Pre_processed_text.txt'
+output_file_path = '/app/shared-files/topic_metadata_with_names.txt'
 
+# Initialize the embedding model
+embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
 def create_chunks(text, chunk_size=500, chunk_overlap=20):
     """Chunk the input text into smaller segments."""
@@ -82,9 +84,6 @@ def vectorize_and_save_to_vector_db():
     metadata = []
     timestamp = datetime.now().isoformat()
 
-    # Initialize the embedding model
-    embedding_function = SentenceTransformer('all-mpnet-base-v2')
-
     # Step 10: Generate embeddings and collect metadata for each chunk
     embeddings = []
     for i, chunk in enumerate(chunks):
@@ -112,7 +111,7 @@ def vectorize_and_save_to_vector_db():
     index.add(np.array(embeddings))  # Add embeddings to FAISS index
 
     # Save FAISS index to a file
-    faiss.write_index(index, 'multimodal_faiss_index.index')
+    faiss.write_index(index, '/app/shared-files/multimodal_faiss_index.index')
 
     # Step 12: Save metadata to a text file in JSON format
     with open(output_file_path, 'w') as f:
