@@ -51,3 +51,5 @@ workflow_documentation.md
 .env
 .venv
 .venv2
+/testing/Pre_processed_text.txt
+/testing/situational_awareness.json
