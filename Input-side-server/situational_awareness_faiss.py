@@ -1,7 +1,6 @@
-""" Module for saving the processed data in a metadata file and the vector database
+""" Module for forwarding the processed data to the vector database
 
-This module is responsible for vectorizing the extracted and tokenized data, and saving the data in
-a metadata file and the vector database (faiss index).
+This module is responsible for vectorizing the extracted and tokenized data, and forwarding it to the vector database.
 
 How this module works:
 ...
@@ -9,24 +8,123 @@ How this module works:
 
 import numpy as np
 import lda
-import requests
 from sklearn.feature_extraction.text import CountVectorizer
 from datetime import datetime
 import json
 import faiss
 from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
+import requests
 
-# Loads the environment variables from the .env file
-load_dotenv()
+global vectorizer
+global model
+global topic_names
 
 TAG = "situational_awareness_faiss:  "
-VECTOR_DB_URL = "http://localhost:8000/write" # Use in testing outside container
-#VECTOR_DB_URL = "http://vector_db_server:8000/write"
+VECTOR_DB_URL = "http://localhost:8000/store"
 
 file_path = './Pre_processed_text.txt'
-output_file_path = './topic_metadata_with_names.txt'
-topic_list_path = './topic_list.json'
+
+# Initialize the embedding model
+embedding_function = SentenceTransformer('all-mpnet-base-v2')
+
+
+def send_new_data_to_database(documents):
+    """
+    Check if the new data matches any existing topics. If not, create new topics for those chunks.
+    Finally, forward the processed data to the vector database.
+    """
+
+    # Split the new data into chunks
+    chunks = get_chunks(documents)
+
+    # Transform new chunks to a document-term matrix with the initial vectorizer
+    X = vectorizer.transform(chunks)
+
+    topic_word = model.topic_word_
+
+    # Calculate the propability of a topic suiting a chunk
+    topic_scores_matrix = X @ topic_word.T
+
+    # Add a tiny epsilon to avoid division by zero if any row is all zeros
+    epsilon = 1e-12
+
+    row_sums = topic_scores_matrix.sum(axis=1) + epsilon
+    topic_probs_matrix = topic_scores_matrix / row_sums[:, np.newaxis]
+    #print(f"{TAG} the topic_probs_matrix is: {np.matrix(topic_probs_matrix)}\n")
+
+    fitting_chunks = []
+    outliners = []
+
+    # Calculate which are the topics that suit best for each chunk
+    best_topic_indices = topic_probs_matrix.argmax(axis=1)  # Best topic per chunk <- index of the topic
+    #print(f"{TAG} the best topic indices: {best_topic_indices}")
+    # Get the score of the best fitting topic per chunk
+    best_topic_scores = topic_probs_matrix.max(axis=1)      # Best topic score per chunk <- best score
+    #print(f"{TAG} the best topic scores per chunk: {best_topic_scores}")
+
+    threshold = 0.5
+
+    # Determine which chunks should be assigned an existing topic and which ones should be generated a new topic
+    for idx, score in enumerate(best_topic_scores):
+        if score > threshold:
+            topic_name = topic_names[best_topic_indices[idx]]
+            fitting_chunks.append((chunks[idx], topic_name))
+            print(f"{TAG} fitting chunk!")
+        else:
+            outliners.append(chunks[idx])
+            print(f"{TAG} outlier...")
+
+    if outliners:
+        # Vectorizer for outliers
+        _, new_model, new_topic_names = vectorize(outliners)
+
+        doc_topic = new_model.doc_topic_
+
+        # Set the best matching topics for outliers
+        for i, chunk in enumerate(outliners):
+            top_topic_idx = doc_topic[i].argmax()
+            top_topic_name = new_topic_names[top_topic_idx]
+            outliners[i] = (chunk, top_topic_name)
+
+    # Combine chunks
+    all_chunks = fitting_chunks + outliners
+
+    # Prepare metadata to send to the vector database
+    metadata = []
+    timestamp = datetime.now().isoformat()
+
+    # Generate embeddings and collect metadata for each chunk
+    embeddings = []
+    for chunk_text, topic_name in all_chunks:
+        # Generate embedding for each chunk
+        embedding = embedding_function.encode([chunk_text]).astype('float16')[0]
+
+        # Collect embeddings and metadata
+        embeddings.append(embedding)  # Store the embedding for FAISS
+
+        # Store the metadata with the topic name
+        metadata.append({
+            "timestamp": timestamp,
+            "topic": topic_name,  # Store the topic name here
+            "text": chunk_text,
+            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
+        })
+
+    try:
+        response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
+        response.raise_for_status()
+        print(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
+    except requests.RequestException as e:
+        print(f"{TAG} Failed to send data: {e}")
+
+
+def get_chunks(documents):
+    chunks = []
+    for doc in documents:
+        # Define a function to chunk text before assigning topics
+        doc_chunks = create_chunks(doc.strip())
+        chunks.extend(doc_chunks)  # Add all chunks from this document to the overall chunk list
+    return chunks
 
 
 def create_chunks(text, chunk_size=500, chunk_overlap=20):
@@ -40,117 +138,21 @@ def create_chunks(text, chunk_size=500, chunk_overlap=20):
     return chunks
 
 
-def vectorize_and_send_to_database(file_contents):
-    ## Step 1: Load the text data from the file
-    #with open(file_path, 'r') as file:
-    #    documents = file.readlines()
-
-    # Step 4: Preprocess the text: convert it to a document-term matrix
-    # First, chunk the documents before vectorizing
-
-    new_chunks = []
-    for content in file_contents:
-        # Step 3: Define a function to chunk text before assigning topics
-        cont_chunks = create_chunks(content.strip())
-        new_chunks.extend(cont_chunks)
-
-    print(f"{TAG} Number of chunks: {len(new_chunks)}")
+def vectorize(chunks):
+    """
+    Vectorize chunks, fit LDA topic model, and extract topic names.
+    """
 
     vectorizer = CountVectorizer(stop_words='english')
-    X = vectorizer.fit_transform(new_chunks)  # Use chunks for topic modeling
 
-    # Step 5: Extract vocabulary
-    vocab = vectorizer.get_feature_names_out()
-
-    # Step 6: Fit the LDA model using the chunks
-    model = lda.LDA(n_topics=10, n_iter=1500, random_state=1)
-    model.fit(X)
-
-    # Step 7: Get the topic-word distribution and create meaningful topic names
-    n_top_words = 8
-    topic_names = []
-    topic_word = model.topic_word_
-
-    for i, topic_dist in enumerate(topic_word):
-        # Get the top words for the topic
-        topic_words = np.array(vocab)[np.argsort(topic_dist)][:-(n_top_words+1):-1]
-        topic_name = " ".join(topic_words)
-        topic_names.append(topic_name)  # Store the topic name
-        print(f'{TAG} Topic {i}: {topic_name}')
-
-    # Step 8: Get the document-topic distribution for the chunks
-    doc_topic = model.doc_topic_
-
-    # Step 9: Prepare metadata to save
-    metadata = []
-    timestamp = datetime.now().isoformat()  # Calculate timestamp FOR THE NEW DATA ONLY!
-
-    # Initialize the embedding model
-    embedding_function = SentenceTransformer('all-mpnet-base-v2')
-
-    # Step 10: Generate embeddings and collect metadata for each chunk
-    embeddings = []
-    for i, chunk in enumerate(new_chunks):
-        # Get the top topic index and name for each chunk
-        top_topic_idx = doc_topic[i].argmax()  # Get the top topic index for the chunk
-        top_topic_name = topic_names[top_topic_idx]  # Use the corresponding topic name
-
-        # Generate embedding for each chunk
-        embedding = embedding_function.encode([chunk]).astype('float16')[0]  # Get the first (and only) embedding
-
-        # Collect embeddings and metadata
-        embeddings.append(embedding)  # Store the embedding for FAISS
-
-        # Store the metadata with the topic name
-        metadata.append({
-            "timestamp": timestamp,
-            "topic": top_topic_name,  # Store the topic name here
-            "text": chunk,
-            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
-        })
-
-    # Data to be sent
-    post_data = {
-        'embeddings': embeddings,
-        'metadata': metadata
-    }
-
-    # Defining content type for the payload
-    headers = {'Content-type': 'application/json'}
-    # Post the user question to the vector database server and get the query result as response
-    response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-    response_as_json = response.json()
-    print(f"The received response is: {response_as_json['message']}")
-
-
-def vectorize_and_save_to_vector_db():
-    # Step 1: Load the text data from the file
-    with open(file_path, 'r') as file:
-        documents = file.readlines()
-
-    # Step 2: Count total sentences and words
-    #total_sentences = len(documents)
-    #total_words = sum(len(doc.split()) for doc in documents)
-
-    # Step 4: Preprocess the text: convert it to a document-term matrix
-    # First, chunk the documents before vectorizing
-    chunks = []
-    for doc in documents:
-        # Step 3: Define a function to chunk text before assigning topics
-        doc_chunks = create_chunks(doc.strip())
-        chunks.extend(doc_chunks)  # Add all chunks from this document to the overall chunk list
-
-    vectorizer = CountVectorizer(stop_words='english')
     X = vectorizer.fit_transform(chunks)  # Use chunks for topic modeling
 
-    # Step 5: Extract vocabulary
-    vocab = vectorizer.get_feature_names_out()
-
-    # Step 6: Fit the LDA model using the chunks
+    # Fit the LDA model using the chunks
     model = lda.LDA(n_topics=10, n_iter=1500, random_state=1)
     model.fit(X)
 
-    # Step 7: Get the topic-word distribution and create meaningful topic names
+    vocab = vectorizer.get_feature_names_out()
+
     n_top_words = 8
     topic_names = []
     topic_word = model.topic_word_
@@ -160,51 +162,18 @@ def vectorize_and_save_to_vector_db():
         topic_words = np.array(vocab)[np.argsort(topic_dist)][:-(n_top_words+1):-1]
         topic_name = " ".join(topic_words)
         topic_names.append(topic_name)  # Store the topic name
-        print(f'{TAG} Topic {i}: {topic_name}')
 
-    # Step 8: Get the document-topic distribution for the chunks
-    doc_topic = model.doc_topic_
+    return vectorizer, model, topic_names
 
-    # Step 9: Prepare metadata to save
-    metadata = []
-    timestamp = datetime.now().isoformat()  # Calculate timestamp FOR THE NEW DATA ONLY!
 
-    # Initialize the embedding model
-    embedding_function = SentenceTransformer('all-mpnet-base-v2')
+def init_model():
+    """
+    Initialize the topic model by reading existing data,
+    chunking it, and fitting a vectorizer and LDA model.
+    """
+    with open(file_path, 'r') as file:
+        documents = file.readlines()
+    chunks = get_chunks(documents)
+    return vectorize(chunks)
 
-    # Step 10: Generate embeddings and collect metadata for each chunk
-    embeddings = []
-    for i, chunk in enumerate(chunks):
-        # Get the top topic index and name for each chunk
-        top_topic_idx = doc_topic[i].argmax()  # Get the top topic index for the chunk
-        top_topic_name = topic_names[top_topic_idx]  # Use the corresponding topic name
-
-        # Generate embedding for each chunk
-        embedding = embedding_function.encode([chunk]).astype('float16')[0]  # Get the first (and only) embedding
-
-        # Collect embeddings and metadata
-        embeddings.append(embedding)  # Store the embedding for FAISS
-
-        # Store the metadata with the topic name
-        metadata.append({
-            "timestamp": timestamp,
-            "topic": top_topic_name,  # Store the topic name here
-            "text": chunk,
-            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
-        })
-
-    
-    # Step 11: Save FAISS index using the embeddings
-    dimension = embeddings[0].shape[0]  # Embedding dimension size
-    index = faiss.IndexFlatL2(dimension)  # Create a FAISS index using L2 distance
-    index.add(np.array(embeddings))  # Add embeddings to FAISS index
-    
-    # Save FAISS index to a file
-    faiss.write_index(index, 'multimodal_faiss_index.index')
-    
-    # Step 12: Save metadata to a text file in JSON format
-    with open(output_file_path, 'w') as f:
-        for entry in metadata:
-            f.write(json.dumps(entry) + '\n')  # Write each entry as a JSON string
-    
-    print(f"{TAG} FAISS index saved and metadata has been saved to '{output_file_path}' with {len(metadata)} entries.")
+vectorizer, model, topic_names = init_model()
