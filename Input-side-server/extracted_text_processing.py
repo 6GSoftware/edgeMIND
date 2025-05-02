@@ -12,6 +12,7 @@ Pre_processed_text.txt file.
 import socket
 import nltk
 import numpy as np
+import os
 from sentence_transformers import SentenceTransformer
 import re
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ from situational_awareness_faiss import vectorize_and_send_to_database
 # Loads the environment variables from the .env file
 load_dotenv()
 
-HOST = "---"
+EXTRACTED_TEXT_PROCESSING_SERVER_IP = "---"
 PORT = 6500
 TAG = "extracted_text_processing:  "
 
@@ -69,7 +70,7 @@ def run_server():
     # Start a server for receiving processed file contents from the individual processing units:
     # audio, image and pdf processing
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
+        s.bind((EXTRACTED_TEXT_PROCESSING_SERVER_IP, PORT))
         s.listen()
         conn, addr = s.accept()
         with conn:
@@ -82,7 +83,8 @@ def run_server():
                 if not processed_file_contents:
                     break
                 # Send a response message
-                conn.sendall("Data was received!")
+                conn.sendall("Data was received!".encode('utf-8'))
+                print(f"{TAG} Response sent")
                 conn.close()
                 # Process the file contents further
                 processed_file_contents = process_extracted_texts(processed_file_contents)

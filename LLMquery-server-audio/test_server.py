@@ -9,7 +9,8 @@ This module is the edgeMIND user query processing server. This module:
     > sends the generated response back to the user.
 """
 
-#from dotenv import load_dotenv
+import os
+from dotenv import load_dotenv
 import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -18,7 +19,8 @@ from datetime import datetime
 import socket
 import re
 import requests
-#import os
+
+load_dotenv()
 
 
 # Set the random seed for reproducibility
@@ -27,6 +29,9 @@ torch.random.manual_seed(0)
 # Server setup
 SERVER_IP_MOBILE = "---"  # Use your own IP address
 SERVER_PORT_MOBILE = 5001
+
+SERVER_IP_INPUT_LAYER = "---"
+SERVER_PORT_INPUT_LAYER = 6500
 
 #VECTOR_DB_URL = "http://localhost:6000/search" # Use in testing outside container
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
@@ -198,6 +203,19 @@ def start_server():
             # Query the llm
             llm_result = query_llm(generation_args, pipe, db_result, user_question)
             #llm_result = f"The result from the database: {result}"
+
+            # Connect to the input processing layer
+            input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            input_layer_socket.connect((SERVER_IP_INPUT_LAYER, SERVER_PORT_INPUT_LAYER))
+
+            # Send the llm query result to the input processing layer for further processing
+            input_layer_socket.send(llm_result.encode('utf-8'))
+            print("LLM result sent to the input layer (text processing and situational awareness)")
+
+            response = input_layer_socket.recv(1024).decode('utf-8')
+            print(f"Received from the input side: {response}")
+            input_layer_socket.close()
+            print("Connection closed with the input processing layer")
 
             # Send the llm query result to the mobile app
             mobile_socket.sendall(llm_result.encode('utf-8'))
