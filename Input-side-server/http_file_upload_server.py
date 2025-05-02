@@ -11,15 +11,13 @@ in the file processing process.
 
 from flask import Flask, request
 import os
-from dotenv import load_dotenv
 import threading
+import socket
 
-# Loads the environment variables from the .env file
-load_dotenv()
+
 
 from pre_processing import pre_process_uploaded_file
-from extracted_text_processing import process_extracted_texts
-from situational_awareness_faiss import vectorize_and_save_to_vector_db
+
 
 app = Flask(__name__)
 
@@ -73,22 +71,12 @@ def process_file(**kwargs):
     file_name = kwargs.get('file_name')
     file_type = kwargs.get('file_type')
 
-    # Process step 2: Extract text from the file and save the exracted text to appropriate file.
     processed_file_content = pre_process_uploaded_file(file_name, file_type)
+    
     print(f"{TAG} Text extracted from the file and saved to appropriate files")
     print(f"{TAG} The content of the processed file is now: {processed_file_content}")
-    
-    # Process step 3: Process the data that was extracted from the uploaded file:
-    # tokenize sentences and save them to appropriate file
-    processed_file_content = process_extracted_texts(processed_file_content)
-    print(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
-    print(f"{TAG} The content of the processed file is now: {processed_file_content}")
-    
-    ## Process step 4:
-    #vectorize_and_save_to_vector_db()
-    #print(f"{TAG} The texts have been vectorized and saved to the faiss index")
-    #
-    #print(f"{TAG} Process complete!\n")
+
+    send_to_extracted_text_processing(processed_file_content)
 
 
 def save_file(file_name, file, file_type):
@@ -137,6 +125,19 @@ def upload_file():
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200
+
+def send_to_extracted_text_processing(processed_file_content):
+    HOST = "172.17.0.1"
+    PORT = 6500
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((HOST, PORT))
+            s.sendall(processed_file_content.encode('utf-8'))
+            response = s.recv(1024)
+            print(f"{TAG}Response from the processor: {response.decode('utf-8')}")
+    except Exception as e:
+        print(f"{TAG}Connection failed: {e}")
 
 
 if __name__ == '__main__':
