@@ -16,17 +16,18 @@ import os
 from sentence_transformers import SentenceTransformer
 import re
 from dotenv import load_dotenv
-from situational_awareness_faiss import vectorize_and_send_to_database
+from situational_awareness_faiss import send_new_data_to_database
 
 # Loads the environment variables from the .env file
 load_dotenv()
 
-EXTRACTED_TEXT_PROCESSING_SERVER_IP = "---"
+HOST = "0.0.0.0"
 PORT = 6500
 TAG = "extracted_text_processing:  "
 
 # Load the Sentence Transformer model
 model = SentenceTransformer("all-mpnet-base-v2")
+
 # File paths
 file_path = './emultimodal_extracted_data.txt'
 output_file_path = './Pre_processed_text.txt'
@@ -70,14 +71,14 @@ def run_server():
     # Start a server for receiving processed file contents from the individual processing units:
     # audio, image and pdf processing
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((EXTRACTED_TEXT_PROCESSING_SERVER_IP, PORT))
+        s.bind((HOST, PORT))
         s.listen()
         conn, addr = s.accept()
         with conn:
             print(f"{TAG} Connection established with {addr}")
             while True:
                 # Receive data from audio, image or pdf processing unit
-                processed_file_contents = conn.recv(1024)
+                processed_file_contents = conn.recv(4096)
                 processed_file_contents = processed_file_contents.decode("utf-8")
                 print(f"{TAG} Received data: {processed_file_contents}")
                 if not processed_file_contents:
@@ -85,10 +86,9 @@ def run_server():
                 # Send a response message
                 conn.sendall("Data was received!".encode('utf-8'))
                 print(f"{TAG} Response sent")
-                conn.close()
                 # Process the file contents further
                 processed_file_contents = process_extracted_texts(processed_file_contents)
-                vectorize_and_send_to_database(processed_file_contents)
+                send_new_data_to_database([line + '\n' for line in processed_file_contents.split('\n') if line.strip()])
 
 
 if __name__ == "__main__":
