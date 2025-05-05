@@ -15,10 +15,6 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import requests
 
-global vectorizer
-global model
-global topic_names
-
 TAG = "situational_awareness_faiss:  "
 VECTOR_DB_URL = "http://localhost:8000/store"
 
@@ -38,9 +34,9 @@ def send_new_data_to_database(documents):
     chunks = get_chunks(documents)
 
     # Transform new chunks to a document-term matrix with the initial vectorizer
-    X = vectorizer.transform(chunks)
+    X = initial_vectorizer.transform(chunks)
 
-    topic_word = model.topic_word_
+    topic_word = initial_model.topic_word_
 
     # Calculate the propability of a topic suiting a chunk
     topic_scores_matrix = X @ topic_word.T
@@ -64,19 +60,32 @@ def send_new_data_to_database(documents):
 
     threshold = 0.5
 
+    print("OLD:")
+    print(initial_vectorizer.get_feature_names_out())
+    
+    print(best_topic_scores)
+
+    print("TOPIC NAMES2:")
+    print(initial_topic_names)
+
     # Determine which chunks should be assigned an existing topic and which ones should be generated a new topic
     for idx, score in enumerate(best_topic_scores):
+
+        print (f"{chunks[idx]}: {score}")
+
         if score > threshold:
-            topic_name = topic_names[best_topic_indices[idx]]
+            topic_name = initial_topic_names[best_topic_indices[idx]]
             fitting_chunks.append((chunks[idx], topic_name))
             print(f"{TAG} fitting chunk!")
         else:
             outliners.append(chunks[idx])
             print(f"{TAG} outlier...")
 
+
+
     if outliners:
         # Vectorizer for outliers
-        _, new_model, new_topic_names = vectorize(outliners)
+        new_vectorizer, new_model, new_topic_names = vectorize(outliners, 1)
 
         doc_topic = new_model.doc_topic_
 
@@ -85,6 +94,15 @@ def send_new_data_to_database(documents):
             top_topic_idx = doc_topic[i].argmax()
             top_topic_name = new_topic_names[top_topic_idx]
             outliners[i] = (chunk, top_topic_name)
+
+        print("NEW:")
+        print(new_vectorizer.get_feature_names_out())
+
+    print("fitting_chunks:")
+    print(fitting_chunks)
+    print("outliners:")
+    print(outliners)
+
 
     # Combine chunks
     all_chunks = fitting_chunks + outliners
@@ -138,7 +156,7 @@ def create_chunks(text, chunk_size=500, chunk_overlap=20):
     return chunks
 
 
-def vectorize(chunks):
+def vectorize(chunks, topic_count):
     """
     Vectorize chunks, fit LDA topic model, and extract topic names.
     """
@@ -148,7 +166,7 @@ def vectorize(chunks):
     X = vectorizer.fit_transform(chunks)  # Use chunks for topic modeling
 
     # Fit the LDA model using the chunks
-    model = lda.LDA(n_topics=10, n_iter=1500, random_state=1)
+    model = lda.LDA(n_topics=topic_count, n_iter=1500, random_state=1)
     model.fit(X)
 
     vocab = vectorizer.get_feature_names_out()
@@ -174,6 +192,6 @@ def init_model():
     with open(file_path, 'r') as file:
         documents = file.readlines()
     chunks = get_chunks(documents)
-    return vectorize(chunks)
+    return vectorize(chunks, 50)
 
-vectorizer, model, topic_names = init_model()
+initial_vectorizer, initial_model, initial_topic_names = init_model()
