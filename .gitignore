@@ -53,3 +53,5 @@ workflow_documentation.md
 .venv2
 /testing/Pre_processed_text.txt
 /testing/situational_awareness.json
+/LLMquery-server-audio/*.png
+requirements_test.txt

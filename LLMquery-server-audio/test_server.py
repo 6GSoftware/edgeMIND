@@ -15,13 +15,15 @@ import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
+#from diffusers import StableDiffusionPipeline
+from diffusers import LCMScheduler, AutoPipelineForText2Image
 from datetime import datetime
 import socket
 import re
 import requests
 
+#-------------------------------------------------------------------------------------------------
 load_dotenv()
-
 
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
@@ -30,140 +32,62 @@ torch.random.manual_seed(0)
 SERVER_IP_MOBILE = "---"  # Use your own IP address
 SERVER_PORT_MOBILE = 5001
 
-SERVER_IP_INPUT_LAYER = "---"
-SERVER_PORT_INPUT_LAYER = 6500
+#SERVER_IP_INPUT_LAYER = "---"
+#SERVER_PORT_INPUT_LAYER = 6500
 
-#VECTOR_DB_URL = "http://localhost:6000/search" # Use in testing outside container
-VECTOR_DB_URL = "http://vector_db_server:8000/search"
-#SERVER_PORT_DB = 6000
-
-#VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
-#VECTOR_BD_SERVER_PORT = 8000
+VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
+#VECTOR_DB_URL = "http://vector_db_server:8000/search"
 
 model_path = "/mydir/saved_LLM_model"
-#model_path = "./saved_LLM_model"   # Use in testing outside container
+#model_path = "./saved_LLM_model"   #NOTE: Use in testing outside container
 
 # Define the prompt template for the assistant
 prompt_template = """
-<|system|>
- 
-You are an expert assistant that answers to the user query.
- 
-You are given some extracted parts relevant to the user query.
- 
-If you don't know the answer, just say "I don't know." Don't try to make up an answer.
- 
-It is very important that you ALWAYS answer the question in the same language the question is in. Remember to always do that.
- 
-Use only the following pieces of context to answer the question at the end.
- 
-<|end|>
- 
-<|user|>
- 
-Context: {context}
- 
-Question is below. Remember to answer in the same language:
- 
-Question: {question}
- 
-<|end|>
- 
-<|assistant|>
+{question} , high quality. Context: {context}
 """
- 
+
+#prompt_template = """
+#{question}
+#"""
+
 # Initialize the prompt with template
 PROMPT = PromptTemplate(
     template=prompt_template,
     input_variables=["context", "question"]
-) 
+)
 
-
-def clean_text(text):
-    """Remove extra spaces and special characters, except periods."""
-    # Remove special characters but keep periods
-    cleaned_text = re.sub(r"[^a-zA-Z0-9\s.]", "", text)
-    
-    # Remove extra spaces
-    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
-    
-    return cleaned_text
-
-
-def filter_generated_text(generated_text, retrieved_texts):
-    """Filter out the retrieved texts and remove timestamps or unwanted patterns."""
-    # Remove the retrieved texts from the generated response
-    filtered_text = generated_text.replace(retrieved_texts, "").strip()
-
-    # Clean any remaining extra spaces or special characters
-    filtered_text = clean_text(filtered_text)
-
-    # Remove timestamps (e.g., "Timestamp 20241016T095658.722410")
-    filtered_text = re.sub(r"Timestamp\s+\d{8}T\d{6}\.\d+", "", filtered_text)
-
-    # Remove repetitive "Topic text" sections if they occur multiple times
-    filtered_text = re.sub(r"Topic text.*?(?=\bTimestamp|\n|$)", "", filtered_text)
-
-    # Remove any extra spaces introduced by the cleanup
-    filtered_text = re.sub(r"\s+", " ", filtered_text).strip()
-
-    return filtered_text
-
-
-def query_llm(generation_args, pipe, db_query_result, user_question):
-    """Handle a connected client: \n
-    - receive query from the client and send it to the vector database server.
-    - receive response from the vector database server. Send the response and the user query to the LLM.
-    - get a generated response from the LLm and send it back to the client.
-    - finally, close client socket connection."""
-
-    # Prepare response for the client
-    if db_query_result:
-        message = PROMPT.format(context=db_query_result, question=user_question)
-    else:
-        message = "I couldn't find relevant information for your query. Could you provide more details?" 
-
-    # Generate output using the text generation model
-    output = pipe(message, **generation_args)
-    generated_text = output[0]['generated_text']
-    print(f"Generated response before cleanup: {generated_text}")
-
-    # Filter out the retrieved texts from the generated response
-    #final_generated_text = filter_generated_text(generated_text, response)
-    final_generated_text = filter_generated_text(generated_text, db_query_result)
-    print(f"Final generated response: {final_generated_text}")
-
-    return final_generated_text
-
+#---------------------------------------------------------------------------------------------------
 
 def start_server():
     """Initialize the server. \n
     Create and start the socket server. \n
     Start listening for client connections."""
+
+    # Test 1
+    '''
+    model = "runwayml/stable-diffusion-v1-5"
          
-    # Load the embedding model once
-    #embedding_function = SentenceTransformer('all-mpnet-base-v2')
+    # Load and set up the text-to-image generation model
+    pipe = StableDiffusionPipeline.from_pretrained(
+        pretrained_model_name_or_path=model,
+        torch_dtype=torch.float32
+    ).to("cpu")
 
-    # Load the text generation model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    pipe.set_progress_bar_config(disable=False)
+    '''
 
-    print("Model loaded successfully!")
+    # Test 2
 
-    # Create a text generation pipeline
-    pipe = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-    )
+    model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+    adapter_id = "latent-consistency/lcm-lora-sdxl"
 
-    # Define generation arguments for high-quality responses
-    generation_args = {
-        "max_new_tokens": 500,
-        "return_full_text": False,
-        "temperature": 0.5,  # Adjust for more creativity
-        "do_sample": True,    # Enable sampling for varied output
-    }
+    pipe = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float32)
+    pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+    pipe.to("cpu")
+
+    # load and fuse lcm lora
+    pipe.load_lora_weights(adapter_id)
+    pipe.fuse_lora()
 
 
     # Create socket server for the mobile app to connect to
@@ -188,7 +112,7 @@ def start_server():
             now=datetime.now()
             print(now)
 
-            # Data to be sent
+            # Data to be sent to the database layer
             post_data = {
                 'question': user_question
             }
@@ -200,27 +124,46 @@ def start_server():
             response_as_json = response.json()
             db_result = response_as_json['message']
 
-            # Query the llm
-            llm_result = query_llm(generation_args, pipe, db_result, user_question)
-            #llm_result = f"The result from the database: {result}"
+            if db_result:
+                # Format prompt for image generation
+                prompt = PROMPT.format(context=db_result, question=user_question)
 
-            # Connect to the input processing layer
-            input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            input_layer_socket.connect((SERVER_IP_INPUT_LAYER, SERVER_PORT_INPUT_LAYER))
+                # Counting the words for testing...
+                prompt_word_count = len(prompt.split())
+                print(f"The word count of the prompt is {prompt_word_count}")
 
-            # Send the llm query result to the input processing layer for further processing
-            input_layer_socket.send(llm_result.encode('utf-8'))
-            print("LLM result sent to the input layer (text processing and situational awareness)")
+                # Generate image
+                #image = pipe(prompt=prompt, num_inference_steps=15).images[0]
+                # disable guidance_scale by passing 0
+                image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
 
-            response = input_layer_socket.recv(1024).decode('utf-8')
-            print(f"Received from the input side: {response}")
-            input_layer_socket.close()
-            print("Connection closed with the input processing layer")
+                # Send the generated image to the mobile app
+                if image:
+                    image.save("./output.png")
+                    mobile_socket.sendall("Image was created!".encode('utf-8'))
+                else:
+                    mobile_socket.sendall("Could not create requested image".encode('utf-8'))
 
-            # Send the llm query result to the mobile app
-            mobile_socket.sendall(llm_result.encode('utf-8'))
+            else:
+                response = "I couldn't find relevant information for your query. Could you provide more details?"
+                mobile_socket.sendall(response.encode('utf-8'))
+
             mobile_socket.close()
             print("Connection closed with the mobile application")
+
+            # Connect to the input processing layer
+            #input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            #input_layer_socket.connect((SERVER_IP_INPUT_LAYER, SERVER_PORT_INPUT_LAYER))
+            #
+            ## Send the llm query result to the input processing layer for further processing
+            #input_layer_socket.send(llm_result.encode('utf-8'))
+            #print("LLM result sent to the input layer (text processing and situational awareness)")
+            #
+            #response = input_layer_socket.recv(1024).decode('utf-8')
+            #print(f"Received from the input side: {response}")
+            #input_layer_socket.close()
+            #print("Connection closed with the input processing layer")
+
 
         except Exception as e:
             print(f"An error occurred: {e}")
