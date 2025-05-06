@@ -25,7 +25,7 @@ TAG = "image_processing:  "
 # Define the folder containing images and the output text file
 image_folder = r'./Pictures'
 
-combined_text_file = '/app/shared-files/emultimodal_extracted_data.txt'
+combined_text_file = './emultimodal_extracted_data.txt'
 
 
 def process_image_files(new_file):
@@ -80,9 +80,18 @@ def process_image_files(new_file):
             clean_up_tokenization_spaces=False
         )[0]
 
+        processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
+
         # Save the response to the output file
         with open(combined_text_file, 'a', encoding='utf-8') as f:
             f.write(f"Response for {new_file}:\n")  # Store the image file name
             f.write(response + "\n\n")
 
+        print(" ")
+        print("new_file:")
+        print(new_file)
+        print(" ")
+
         print(f"{TAG} Processed and saved response for {new_file}")
+
+        return processed_file_content

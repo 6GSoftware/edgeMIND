@@ -64,15 +64,13 @@ def process_pdfs_with_llamaparse(new_file):
 def process_pdf_files(new_file):
     """Process PDFs and save extracted data to a .txt file"""
 
-    # Step 2: Process PDF files and extract text
+    # Process PDF files and extract text
     extracted_texts, newly_processed_files = process_pdfs_with_llamaparse(new_file)
 
-    # Step 3: Save the extracted data to a .txt file
-    if extracted_texts:
-        with open(combined_text_file, 'a', encoding='utf-8') as f:
-            for pdf_file, text in extracted_texts:
-                if isinstance(text, str):  # Ensure it's a string
-                    f.write(f"Response for {pdf_file}:\n")  # Save the PDF file name
-                    f.write(text + "\n\n")  # Save the extracted text
+    combined_text = ""
+    for pdf_file, text in extracted_texts:
+        if isinstance(text, str):
+            combined_text += f"Response for {pdf_file}:\n"
+            combined_text += text + "\n\n"
 
-    print(f"{TAG} Extracted data has been saved to {combined_text_file}. Processed files list has been updated.")
+    return combined_text

@@ -2,28 +2,24 @@ services:
   llm_query_server_text:
     build: 
       context: ./LLMquery-server-text
-    #volumes:
-    #  - type: bind
-    #    source: /home/<user>/.cache/huggingface
-    #    target: /root/.cache/huggingface
     networks:
       - edgemind_network
     ports:
       - "5000:5000"
       - "6000:6000"
+    volumes:
+      - ./LLMquery-server-text:/app
 
   llm_query_server_audio:
     build: 
       context: ./LLMquery-server-audio
-    #volumes:
-    #  - type: bind
-    #    source: /home/<user>/.cache/huggingface
-    #    target: /root/.cache/huggingface
     networks:
       - edgemind_network
     ports:
       - "5001:5001"
       - "6001:6001"
+    volumes:
+      - ./LLMquery-server-audio:/app
 
   vector_db_server:
     build: 
@@ -32,6 +28,47 @@ services:
       - edgemind_network
     ports:
       - "8000:8000"
+    volumes:
+      - ./edgeMIND-vector-db-server:/app
+
+  image-service:
+    build: ./image-processing-server
+    networks:
+      - edgemind_network
+    ports:
+      - "5002:5000"
+    volumes:
+      - ./image-processing-server:/app
+     
+  audio-service:
+    build: ./audio-processing-server
+    networks:
+      - edgemind_network
+    ports:
+      - "5003:5000"
+    volumes:
+      - ./audio-processing-server:/app
+
+  pdf-service:
+    build: ./pdf-processing-server
+    networks:
+      - edgemind_network
+    ports:
+      - "5004:5000"
+    volumes:
+      - ./pdf-processing-server:/app
+    env_file:
+      - .env
+      
+  situational_awareness_server:
+    build:
+      context: ./situational-awareness-server
+    networks:
+      - edgemind_network
+    ports:
+      - "6500:6500"
+    volumes:
+      - ./situational-awareness-server:/app
 
 networks:
   edgemind_network:

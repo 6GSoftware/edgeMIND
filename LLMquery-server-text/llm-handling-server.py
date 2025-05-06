@@ -24,7 +24,7 @@ import re
 torch.random.manual_seed(0)
 
 # Server setup
-SERVER_IP_MOBILE = "---"  # Use your own IP address
+SERVER_IP_MOBILE = "0.0.0.0"
 SERVER_PORT_MOBILE = 5000
 
 SERVER_IP_DB = "llm_query_server_text"
@@ -33,7 +33,7 @@ SERVER_PORT_DB = 6000
 #VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
 #VECTOR_BD_SERVER_PORT = 8000
 
-model_path = "/mydir/saved_LLM_model"
+model_path = "./saved_LLM_model"
 
 # Define the prompt template for the assistant
 prompt_template = """

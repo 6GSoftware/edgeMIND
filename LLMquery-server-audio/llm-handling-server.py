@@ -9,7 +9,6 @@ This module is the edgeMIND user query processing server. This module:
     > sends the generated response back to the user.
 """
 
-#from dotenv import load_dotenv
 import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -17,14 +16,14 @@ from langchain.prompts import PromptTemplate
 from datetime import datetime
 import socket
 import re
-#import os
+#from dotenv import load_dotenv
 
 
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
 # Server setup
-SERVER_IP_MOBILE = "---"  # Use your own IP address
+SERVER_IP_MOBILE = "0.0.0.0"
 SERVER_PORT_MOBILE = 5001
 
 SERVER_IP_DB = "llm_query_server_audio"
@@ -33,7 +32,7 @@ SERVER_PORT_DB = 6001
 #VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
 #VECTOR_BD_SERVER_PORT = 8000
 
-model_path = "/mydir/saved_LLM_model"
+model_path = "./saved_LLM_model"
 
 # Define the prompt template for the assistant
 prompt_template = """

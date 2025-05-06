@@ -1,17 +1,12 @@
 FROM python:3.10
 
-WORKDIR /mydir
+WORKDIR /app
 
-# Install dependencies
-RUN pip install faiss-cpu
-RUN pip install sentence-transformers
+COPY requirements.txt .
 
-# Copy metadata file and vector database to the image
-COPY topic_metadata_with_names.txt .
-COPY multimodal_faiss_index.index .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the vector database handling server code to the image
-COPY vector-db-server.py .
+COPY . .
 
 EXPOSE 8000
 

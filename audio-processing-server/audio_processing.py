@@ -20,15 +20,12 @@ TAG = "audio_processing:  "
 # Folder with audio files
 audio_folder = './Audio'
 
-combined_text_file = './emultimodal_extracted_data.txt'
-
+# Step 1: Initialize Whisper model for transcription
+model_whisper = whisper.load_model("base")
+print(f"{TAG} Whisper model loaded successfully.")
 
 def transcribe_audio_files(audio_folder, new_file):
     """Load and process audio files, returning the transcriptions."""
-    
-    # Step 1: Initialize Whisper model for transcription
-    model_whisper = whisper.load_model("base")
-    print(f"{TAG} Whisper model loaded successfully.")
     
     texts = []
 
@@ -53,16 +50,29 @@ def transcribe_audio_files(audio_folder, new_file):
 
 
 def process_audio_files(new_file):
-    # Step 1: Process audio files and avoid reprocessing already transcribed files
+    # Process audio files and avoid reprocessing already transcribed files
     transcriptions = transcribe_audio_files(audio_folder, new_file)
     
     if not transcriptions:
         print(f"{TAG} No new transcriptions were generated.")
-    else:
-        # Step 2: Save new transcriptions and update the processed files list
-        with open(combined_text_file, 'a', encoding='utf-8') as f:
-            for audio_file, transcription in transcriptions:
-                f.write(f"Transcription for {audio_file}:\n")  # Save the audio file name
-                f.write(transcription + '\n\n')  # Save the transcription
 
-    print(f"{TAG} Processing complete. New transcriptions saved to '{combined_text_file}', and processed files updated.")
+    return transcriptions
+
+def process_audio_files(new_file):
+    """Process audio files and return transcriptions as a formatted string"""
+
+    # Step 1: Process audio files
+    transcriptions = transcribe_audio_files(audio_folder, new_file)
+
+    if not transcriptions:
+        print(f"{TAG} No new transcriptions were generated.")
+        return ""  # Return empty string if nothing was processed
+
+    # Step 2: Build the combined text
+    combined_text = ""
+    for audio_file, transcription in transcriptions:
+        combined_text += f"Transcription for {audio_file}:\n"
+        combined_text += transcription + '\n\n'
+
+    print(f"{TAG} Processing complete. New transcriptions ready in memory.")
+    return combined_text

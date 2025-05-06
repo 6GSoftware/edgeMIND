@@ -10,4 +10,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["python", "-u", "app.py"]
+CMD ["python", "-u", "pdf_server.py"]
