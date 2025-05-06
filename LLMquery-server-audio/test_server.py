@@ -16,7 +16,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
 #from diffusers import StableDiffusionPipeline
-from diffusers import LCMScheduler, AutoPipelineForText2Image
+#from diffusers import LCMScheduler, AutoPipelineForText2Image
+from diffusers import DiffusionPipeline
 from datetime import datetime
 import socket
 import re
@@ -77,7 +78,7 @@ def start_server():
     '''
 
     # Test 2
-
+    '''
     model_id = "stabilityai/stable-diffusion-xl-base-1.0"
     adapter_id = "latent-consistency/lcm-lora-sdxl"
 
@@ -88,6 +89,11 @@ def start_server():
     # load and fuse lcm lora
     pipe.load_lora_weights(adapter_id)
     pipe.fuse_lora()
+    '''
+
+    # Test 3
+    pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
+    pipe = pipe.to("cpu")
 
 
     # Create socket server for the mobile app to connect to
@@ -135,7 +141,9 @@ def start_server():
                 # Generate image
                 #image = pipe(prompt=prompt, num_inference_steps=15).images[0]
                 # disable guidance_scale by passing 0
-                image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
+                #image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
+                # Generate image
+                image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
 
                 # Send the generated image to the mobile app
                 if image:

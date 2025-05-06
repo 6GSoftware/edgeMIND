@@ -74,9 +74,9 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
         result_entry = metadata[idx]
         results.append({
             "text": result_entry["text"],
-            #"topic": result_entry["topic"],
-            #"timestamp": result_entry["timestamp"],
-            #"distance": distances[0][i]
+            "topic": result_entry["topic"],
+            "timestamp": result_entry["timestamp"],
+            "distance": distances[0][i]
         })
     
     return results
@@ -113,12 +113,12 @@ def search_database():
     results = search_faiss_index(question, index, metadata, embedding_function)
     print("Result from searching the faiss index:\n", results)
 
-    result_list = [result['text'] for result in results]
-    result_string = str(result_list)
-    print(f"The result as a string: {result_string}\n")
+    #result_list = [result['text'] for result in results]
+    #result_string = str(result_list)
+    #print(f"The result as a string: {result_string}\n")
 
-    #result_as_json = json.dumps(str(results))
-    result_as_json = json.dumps(result_string)
+    result_as_json = json.dumps(str(results))
+    #result_as_json = json.dumps(result_string)
 
     return {'message': result_as_json}, 200
 
