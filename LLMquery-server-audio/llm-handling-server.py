@@ -113,7 +113,7 @@ def start_server():
 
             if not user_question:
                 print("No data was received.")
-                return
+                continue    # TODO: check that this works!
             print(f"Received from client: {user_question}")
             now=datetime.now()
             print(now)
@@ -127,8 +127,18 @@ def start_server():
             headers = {'Content-type': 'application/json'}
             # Post the user question to the vector database server and get the query result as response
             response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-            response_as_json = response.json()
-            db_result = response_as_json['message']
+            #response_as_json = response.json()
+            #db_result = response_as_json['message']
+
+            #if response_as_json['status'] == 'error':
+            if response['status'] == 'error':
+                response_to_user = f"An error occurred in searching the vector database: {response['message']}"
+                mobile_socket.sendall(response_to_user)
+                mobile_socket.close()
+                print("Connection closed with the mobile application due to an error")
+                continue    # TODO: check that this works!
+
+            db_result = response['message']
 
             if db_result:
                 # Format prompt for image generation
