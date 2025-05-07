@@ -9,226 +9,91 @@ This module is the edgeMIND user query processing server. This module:
     > sends the generated response back to the user.
 """
 
+#import os
+from dotenv import load_dotenv
 import json
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+#from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
+#from diffusers import StableDiffusionPipeline
+#from diffusers import LCMScheduler, AutoPipelineForText2Image
+from diffusers import DiffusionPipeline
 from datetime import datetime
 import socket
-import re
-#from dotenv import load_dotenv
+#import re
+import requests
 
+#-------------------------------------------------------------------------------------------------
+load_dotenv()
 
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
 # Server setup
-SERVER_IP_MOBILE = "0.0.0.0"
-SERVER_PORT_MOBILE = 5001
+SERVER_IP_MOBILE = "---"  # Use your own IP address
+SERVER_PORT_MOBILE = 5001   # NOTE: port 5001 for the image generation server
 
-SERVER_IP_DB = "llm_query_server_audio"
-SERVER_PORT_DB = 6001
+#SERVER_IP_INPUT_LAYER = "---"
+#SERVER_PORT_INPUT_LAYER = 6500
 
-#VECTOR_DB_SERVER_IP = "edgemind_vector_db_server"   # Service name
-#VECTOR_BD_SERVER_PORT = 8000
+VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
+#VECTOR_DB_URL = "http://vector_db_server:8000/search"
 
 model_path = "./saved_LLM_model"
+#model_path = "./saved_LLM_model"   #NOTE: Use in testing outside container
 
 # Define the prompt template for the assistant
 prompt_template = """
-<|system|>
- 
-You are an expert assistant that answers to the user query.
- 
-You are given some extracted parts relevant to the user query.
- 
-If you don't know the answer, just say "I don't know." Don't try to make up an answer.
- 
-It is very important that you ALWAYS answer the question in the same language the question is in. Remember to always do that.
- 
-Use only the following pieces of context to answer the question at the end.
- 
-<|end|>
- 
-<|user|>
- 
-Context: {context}
- 
-Question is below. Remember to answer in the same language:
- 
-Question: {question}
- 
-<|end|>
- 
-<|assistant|>
+{question} , high quality. Context: {context}
 """
- 
+
+#prompt_template = """
+#{question}
+#"""
+
 # Initialize the prompt with template
 PROMPT = PromptTemplate(
     template=prompt_template,
     input_variables=["context", "question"]
-) 
+)
 
-
-def clean_text(text):
-    """Remove extra spaces and special characters, except periods."""
-    # Remove special characters but keep periods
-    cleaned_text = re.sub(r"[^a-zA-Z0-9\s.]", "", text)
-    
-    # Remove extra spaces
-    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
-    
-    return cleaned_text
-
-
-def filter_generated_text(generated_text, retrieved_texts):
-    """Filter out the retrieved texts and remove timestamps or unwanted patterns."""
-    # Remove the retrieved texts from the generated response
-    filtered_text = generated_text.replace(retrieved_texts, "").strip()
-
-    # Clean any remaining extra spaces or special characters
-    filtered_text = clean_text(filtered_text)
-
-    # Remove timestamps (e.g., "Timestamp 20241016T095658.722410")
-    filtered_text = re.sub(r"Timestamp\s+\d{8}T\d{6}\.\d+", "", filtered_text)
-
-    # Remove repetitive "Topic text" sections if they occur multiple times
-    filtered_text = re.sub(r"Topic text.*?(?=\bTimestamp|\n|$)", "", filtered_text)
-
-    # Remove any extra spaces introduced by the cleanup
-    filtered_text = re.sub(r"\s+", " ", filtered_text).strip()
-
-    return filtered_text
-
-
-def query_llm(client_socket, generation_args, pipe):
-    """Handle a connected client: \n
-    - receive query from the client and send it to the vector database server.
-    - receive response from the vector database server. Send the response and the user query to the LLM.
-    - get a generated response from the LLm and send it back to the client.
-    - finally, close client socket connection."""
-
-    '''
-    print("Receive data from the database server:\n")
-    # Receive data from the client (up to 1024 bytes)
-    db_data = client_socket.recv(1024).decode('utf-8')
-    print("db results received\n")
-
-    user_query = client_socket.recv(1024).decode('utf-8')
-    print("user query received\n")
-    '''
-    
-    data = client_socket.recv(1024).decode('utf-8')
-    data = json.loads(data)
-    user_query = data["query"]
-    db_data = data["results"]
-
-    if not data:
-        print("No data was received.")
-        return
-    print(f"Received from client: {data}")
-    now=datetime.now()
-    print(now)
-
-    '''
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        # Connect to the vector db handler server and send the query
-        s.connect((VECTOR_DB_SERVER_IP, VECTOR_BD_SERVER_PORT))
-        s.sendall(data)
-
-        # Receive a response from the server 
-        response = s.recv(1024).decode('utf-8')
-        #response_as_list = pickle.loads(s.recv(1024))
-        #response_as_list = json.loads(s.recv(1024).decode('utf-8'))
-
-    print("Type of the received data: ", type(response))
-    print("Received from the vector db handler server:\n", str(response))
-    
-
-    # Prepare response for the client
-    if response:
-        message = PROMPT.format(context=response,question=data)
-    else:
-        message = "I couldn't find relevant information for your query. Could you provide more details?"
-    '''
-
-    # Prepare response for the client
-    if db_data:
-        message = PROMPT.format(context=db_data,question=user_query)
-    else:
-        message = "I couldn't find relevant information for your query. Could you provide more details?" 
-
-    # Generate output using the text generation model
-    output = pipe(message, **generation_args)
-    generated_text = output[0]['generated_text']
-    print(f"Generated response before cleanup: {generated_text}")
-
-    # Filter out the retrieved texts from the generated response
-    #final_generated_text = filter_generated_text(generated_text, response)
-    final_generated_text = filter_generated_text(generated_text, db_data)
-    print(f"Final generated response: {final_generated_text}")
-
-    return final_generated_text
-
-    # Send the cleaned and filtered response back to the client
-    #client_socket.sendall(final_generated_text.encode('utf-8'))
-
-    # Close the client connection
-    #client_socket.close()
-    #print(f"Connection closed with {client_address}")
-
-
-def identify_client(client_socket):
-    print("Identifying the client:\n")
-    identifier = client_socket.recv(1024).decode()
-
-    print("Received: " + identifier + "\n")
-    if identifier == "db":
-        return True
-    return False
-
-
+#---------------------------------------------------------------------------------------------------
 
 def start_server():
     """Initialize the server. \n
     Create and start the socket server. \n
     Start listening for client connections."""
+
+    # Test 1
+    '''
+    model = "runwayml/stable-diffusion-v1-5"
          
-    # Load the embedding model once
-    #embedding_function = SentenceTransformer('all-mpnet-base-v2')
+    # Load and set up the text-to-image generation model
+    pipe = StableDiffusionPipeline.from_pretrained(
+        pretrained_model_name_or_path=model,
+        torch_dtype=torch.float32
+    ).to("cpu")
 
-
-    '''
-    # Load the text generation model and tokenizer from Hugging Face Hub
-    model = AutoModelForCausalLM.from_pretrained(
-        "microsoft/Phi-3.5-mini-instruct", 
-        device_map="auto",  # Automatically choose the device
-        torch_dtype=torch.float32,  # Use float32 for CPU
-        trust_remote_code=True,
-    )
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
+    pipe.set_progress_bar_config(disable=False)
     '''
 
-    # Load the text generation model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    # Test 2
+    '''
+    model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+    adapter_id = "latent-consistency/lcm-lora-sdxl"
 
-    print("Model loaded successfully!")
+    pipe = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float32)
+    pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+    pipe.to("cpu")
 
-    # Create a text generation pipeline
-    pipe = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-    )
+    # load and fuse lcm lora
+    pipe.load_lora_weights(adapter_id)
+    pipe.fuse_lora()
+    '''
 
-    # Define generation arguments for high-quality responses
-    generation_args = {
-        "max_new_tokens": 500,
-        "return_full_text": False,
-        "temperature": 0.5,  # Adjust for more creativity
-        "do_sample": True,    # Enable sampling for varied output
-    }
+    # Test 3
+    pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
+    pipe = pipe.to("cpu")
 
 
     # Create socket server for the mobile app to connect to
@@ -237,68 +102,79 @@ def start_server():
     mobile_server_socket.listen(5)
     print(f"Server for mobile app is listening on {SERVER_IP_MOBILE}:{SERVER_PORT_MOBILE}")
 
-    # Create socket server for the db server to connect to
-    db_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    db_server_socket.bind((SERVER_IP_DB, SERVER_PORT_DB))
-    db_server_socket.listen(5)
-    print(f"Server for db server is listening on {SERVER_IP_DB}:{SERVER_PORT_DB}")
-
     while True:
         try:
-            # Accept incoming connections from the mobile app and the database server
+            # Accept incoming connection from the mobile app
             mobile_socket, mobile_address = mobile_server_socket.accept()
             print(f"Connection established with {mobile_address}")
 
-            db_socket, db_address = db_server_socket.accept()
-            print(f"Connection established with {db_address}")
+            # Get query question from client
+            user_question = mobile_socket.recv(1024).decode('utf-8')
 
-            # Query the llm
-            result = query_llm(db_socket, generation_args, pipe)
-            db_socket.close()
-            print("Connection closed with the database server")
+            if not user_question:
+                print("No data was received.")
+                return
+            print(f"Received from client: {user_question}")
+            now=datetime.now()
+            print(now)
 
-            # Send the llm query result to the mobile app
-            mobile_socket.sendall(result.encode('utf-8'))
+            # Data to be sent to the database layer
+            post_data = {
+                'question': user_question
+            }
+
+            # Defining content type for the payload
+            headers = {'Content-type': 'application/json'}
+            # Post the user question to the vector database server and get the query result as response
+            response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+            response_as_json = response.json()
+            db_result = response_as_json['message']
+
+            if db_result:
+                # Format prompt for image generation
+                prompt = PROMPT.format(context=db_result, question=user_question)
+
+                # Counting the words for testing...
+                prompt_word_count = len(prompt.split())
+                print(f"The word count of the prompt is {prompt_word_count}")
+
+                # Generate image
+                #image = pipe(prompt=prompt, num_inference_steps=15).images[0]
+                # disable guidance_scale by passing 0
+                #image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
+                # Generate image
+                image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
+
+                # Send the generated image to the mobile app
+                if image:
+                    image.save("./output.png")
+                    mobile_socket.sendall("Image was created!".encode('utf-8'))
+                else:
+                    mobile_socket.sendall("Could not create requested image".encode('utf-8'))
+
+            else:
+                response = "I couldn't find relevant information for your query. Could you provide more details?"
+                mobile_socket.sendall(response.encode('utf-8'))
+
             mobile_socket.close()
             print("Connection closed with the mobile application")
 
+            # Connect to the input processing layer
+            #input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            #input_layer_socket.connect((SERVER_IP_INPUT_LAYER, SERVER_PORT_INPUT_LAYER))
+            #
+            ## Send the llm query result to the input processing layer for further processing
+            #input_layer_socket.send(llm_result.encode('utf-8'))
+            #print("LLM result sent to the input layer (text processing and situational awareness)")
+            #
+            #response = input_layer_socket.recv(1024).decode('utf-8')
+            #print(f"Received from the input side: {response}")
+            #input_layer_socket.close()
+            #print("Connection closed with the input processing layer")
+
+
         except Exception as e:
             print(f"An error occurred: {e}")
-
-
-    '''
-    while True:
-        try:
-            # Accept an incoming connection (probably the mobile app)
-            client_socket_1, client_address_1 = server_socket.accept()
-            print(f"Connection established with {client_address_1}")
-
-            # Accept an incoming connection (probably the db server)
-            client_socket_2, client_address_2 = server_socket.accept()
-            print(f"Connection established with {client_address_2}")
-            # Identify the client
-            isDBsocket = identify_client(client_socket_2)
-
-            if isDBsocket:
-                db_socket = client_socket_2
-                app_socket = client_socket_1
-            else:
-                db_socket = client_socket_1
-                app_socket = client_socket_2
-
-            result = query_llm(db_socket, generation_args, pipe)
-            # Close connection with the db server
-            db_socket.close()
-            print("Connection closed with the database server")
-            # Send the llm query result to the mobile app
-            app_socket.sendall(result.encode('utf-8'))
-            # Close connection with the mobile app
-            app_socket.close()
-            print("Connection closed with the mobile application")
-
-        except Exception as e:
-            print(f"An error occurred: {e}")'
-    '''
 
 
 if __name__ == "__main__":
