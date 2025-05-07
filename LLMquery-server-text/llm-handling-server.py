@@ -114,7 +114,7 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
     if db_query_result:
         message = PROMPT.format(context=db_query_result, question=user_question)
     else:
-        message = "I couldn't find relevant information for your query. Could you provide more details?" 
+        return ""
 
     # Generate output using the text generation model
     output = pipe(message, **generation_args)
@@ -190,12 +190,29 @@ def start_server():
             headers = {'Content-type': 'application/json'}
             # Post the user question to the vector database server and get the query result as response
             response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-            response_as_json = response.json()
-            db_result = response_as_json['message']
+            #response_as_json = response.json()
+            #db_result = response_as_json['message']
+
+            #if response_as_json['status'] == 'error':
+            if response['status'] == 'error':
+                response_to_user = f"An error occurred in searching the vector database: {response['message']}"
+                mobile_socket.sendall(response_to_user)
+                mobile_socket.close()
+                print("Connection closed with the mobile application due to an error")
+                continue    # TODO: check that this works!
+
+            db_result = response['message']
 
             # Query the llm
             llm_result = query_llm(generation_args, pipe, db_result, user_question)
             #llm_result = f"The result from the database: {result}"
+
+            if llm_result == "":
+                exception_message = "I couldn't find relevant information for your query. Could you provide more details?"
+                mobile_socket.sendall(exception_message.encode('utf-8'))
+                mobile_socket.close()
+                print("Connection closed with the mobile application and error message sent to user")
+                continue    # TODO: check that this works!!!
 
             # Connect to the input processing layer
             input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
