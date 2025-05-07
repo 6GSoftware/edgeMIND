@@ -45,8 +45,14 @@ multimodal_faiss_index.index
 Pre_processed_text.txt
 topic_metadata_with_names.txt
 
-# Other files
+# Other files and directories
 workflow_documentation.md
 .env
 .venv
 .venv2
+/Input-side-server
+/testing
+requirements_test.txt
+
+# Image files used in testing
+/LLMquery-server-audio/*.png
