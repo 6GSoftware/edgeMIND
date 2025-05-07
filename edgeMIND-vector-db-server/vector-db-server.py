@@ -2,17 +2,25 @@ from flask import Flask, request, jsonify
 from datetime import datetime
 import faiss
 import json
+import logging
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
 import socket
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
 index_file_path = 'multimodal_faiss_index.index'
 metadata_file_path = 'topic_metadata_with_names.txt'
 
+DB_SERVER_IP = "---"
+DB_SERVER_PORT = 8000
+
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
+
+
 
 def load_metadata(file_path):
     """Load metadata from a file."""
@@ -50,16 +58,6 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     return results
 
 
-def choose_server(output_format):
-    match output_format:
-        case "text":
-            return {"server_ip": "llm_query_server_text", "server_port": 6000}
-        case "audio":
-            return {"server_ip": "llm_query_server_audio", "server_port": 6001}
-        case _:
-            return {"server_ip": "llm_query_server_text", "server_port": 6000}
-
-
 @app.route('/store', methods=['POST'])
 def store_data():
     try:
@@ -85,41 +83,37 @@ def store_data():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    
 
-
-@app.route('/query', methods=['POST'])
-def query_data():
+@app.route('/search', methods=['POST'])
+def search_database():
     try:
-        data = request.json
-        query_text = data['message']
-        output_format = data['output']
+        request_data = request.get_json()
+        question = request_data['question']
+        print(f"Received: {question}")
 
+        #results = f"Your question was: {question}"
+
+        # Load faiss index, metadata and embedding function every time a new client is connected
         index = load_faiss_index(index_file_path)
         metadata = load_metadata(metadata_file_path)
+        #embedding_function = load_embedding_function()
 
-        results = search_faiss_index(query_text, index, metadata, embedding_function)
+        results = search_faiss_index(question, index, metadata, embedding_function)
+        print("Result from searching the faiss index:\n", results)
 
-        if results:
-            retrieved_texts = "\n".join([
-                f"**Topic**: {r['topic']}\n**Timestamp**: {r['timestamp']}\n**Text**: {r['text']}\n"
-                for r in results[:3]
-            ])
-            response = retrieved_texts
-        else:
-            response = ""
+        #result_list = [result['text'] for result in results]
+        #result_string = str(result_list)
+        #print(f"The result as a string: {result_string}\n")
 
-        llm_server = choose_server(output_format)
-        payload = json.dumps({"query": query_text, "results": response})
+        result_as_json = json.dumps(str(results))
+        #result_as_json = json.dumps(result_string)
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((llm_server['server_ip'], llm_server['server_port']))
-            s.sendall(payload.encode('utf-8'))
-
-        return jsonify({"status": "success", "results": results})
+        return jsonify({"status": "success", "message": result_as_json})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
+    
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    app.run(host=DB_SERVER_IP, port=DB_SERVER_PORT)
