@@ -82,18 +82,5 @@ def send_to_extracted_text_processing(processed_file_content):
     except Exception as e:
         print(f"{TAG}Connection failed: {e}")
 
-
-def format_processed_content(extracted_texts):
-    """
-    Takes a list of (filename, text) tuples and converts it into a readable string.
-    """
-    output = ""
-    for filename, text in extracted_texts:
-        output += f"Response for {filename}:\n"
-        for line in text.strip().split('\n'):
-            if line.strip():
-                output += f"- {line.strip()}\n"
-    return output
-
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
