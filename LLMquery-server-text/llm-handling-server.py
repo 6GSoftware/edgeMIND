@@ -24,10 +24,10 @@ import requests
 torch.random.manual_seed(0)
 
 # Server setup
-SERVER_IP_MOBILE = "---"  # Use your own IP address
+SERVER_IP_MOBILE = "0.0.0.0"  # Use your own IP address
 SERVER_PORT_MOBILE = 5000   # NOTE: port 5000 for the text generation server
 
-SERVER_IP_INPUT_LAYER = "---" 
+SERVER_IP_INPUT_LAYER = "situational_awareness_server" 
 SERVER_PORT_INPUT_LAYER = 6500
 
 #VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
@@ -190,18 +190,19 @@ def start_server():
             headers = {'Content-type': 'application/json'}
             # Post the user question to the vector database server and get the query result as response
             response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-            #response_as_json = response.json()
+            response_as_json = response.json()
             #db_result = response_as_json['message']
+            print(f"response from db server: {response_as_json}")
 
             #if response_as_json['status'] == 'error':
-            if response['status'] == 'error':
-                response_to_user = f"An error occurred in searching the vector database: {response['message']}"
+            if response_as_json['status'] == 'error':
+                response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
                 mobile_socket.sendall(response_to_user)
                 mobile_socket.close()
                 print("Connection closed with the mobile application due to an error")
                 continue    # TODO: check that this works!
 
-            db_result = response['message']
+            db_result = response_as_json['message']
 
             # Query the llm
             llm_result = query_llm(generation_args, pipe, db_result, user_question)
@@ -214,23 +215,23 @@ def start_server():
                 print("Connection closed with the mobile application and error message sent to user")
                 continue    # TODO: check that this works!!!
 
+            # Send the llm query result to the mobile app
+            mobile_socket.sendall(llm_result.encode('utf-8'))
+            mobile_socket.close()
+            print("Connection closed with the mobile application")
+
             # Connect to the input processing layer
             input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             input_layer_socket.connect((SERVER_IP_INPUT_LAYER, SERVER_PORT_INPUT_LAYER))
 
             # Send the llm query result to the input processing layer for further processing
-            input_layer_socket.send(llm_result.encode('utf-8'))
+            input_layer_socket.sendall(llm_result.encode('utf-8'))
             print("LLM result sent to the input layer (text processing and situational awareness)")
 
             response = input_layer_socket.recv(1024).decode('utf-8')
             print(f"Received from the input side: {response}")
             input_layer_socket.close()
             print("Connection closed with the input processing layer")
-
-            # Send the llm query result to the mobile app
-            mobile_socket.sendall(llm_result.encode('utf-8'))
-            mobile_socket.close()
-            print("Connection closed with the mobile application")
 
         except Exception as e:
             print(f"An error occurred: {e}")

@@ -10,7 +10,6 @@ This module is the edgeMIND user query processing server. This module:
 """
 
 #import os
-from dotenv import load_dotenv
 import json
 import torch
 #from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -24,20 +23,19 @@ import socket
 import requests
 
 #-------------------------------------------------------------------------------------------------
-load_dotenv()
 
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
 # Server setup
-SERVER_IP_MOBILE = "---"  # Use your own IP address
+SERVER_IP_MOBILE = "0.0.0.0"  # Use your own IP address
 SERVER_PORT_MOBILE = 5001   # NOTE: port 5001 for the image generation server
 
 #SERVER_IP_INPUT_LAYER = "---"
 #SERVER_PORT_INPUT_LAYER = 6500
 
-VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
-#VECTOR_DB_URL = "http://vector_db_server:8000/search"
+#VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
+VECTOR_DB_URL = "http://vector_db_server:8000/search"
 
 model_path = "./saved_LLM_model"
 #model_path = "./saved_LLM_model"   #NOTE: Use in testing outside container

@@ -15,7 +15,7 @@ app = Flask(__name__)
 index_file_path = 'multimodal_faiss_index.index'
 metadata_file_path = 'topic_metadata_with_names.txt'
 
-DB_SERVER_IP = "---"
+DB_SERVER_IP = "0.0.0.0"
 DB_SERVER_PORT = 8000
 
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
@@ -78,6 +78,7 @@ def store_data():
 
         index.add(embeddings)
         faiss.write_index(index, index_file_path)
+        print("Wrote new data to faiss index!")
 
         return jsonify({"status": "success", "message": "Data stored successfully."})
 

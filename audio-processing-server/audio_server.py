@@ -5,6 +5,9 @@ import socket
 
 from audio_processing import process_audio_files
 
+HOST = "situational_awareness_server"
+PORT = 6500
+
 TAG = "audio_service: "
 
 BASE_DIRECTORY = "./"
@@ -70,9 +73,6 @@ def upload_file():
 
 
 def send_to_extracted_text_processing(processed_file_content):
-
-    HOST = "172.17.0.1"
-    PORT = 6500
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
