@@ -76,6 +76,7 @@ def process_extracted_texts(file_content):
 def receive_all(sock):
     data = b''
     while True:
+        print("Receiving data...")
         part = sock.recv(4096)
         if not part:
             break

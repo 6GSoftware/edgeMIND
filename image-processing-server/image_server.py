@@ -5,6 +5,9 @@ import socket
 
 from image_processing import process_image_files
 
+HOST = "situational_awareness_server"
+PORT = 6500
+
 TAG = "image_service: "
 
 BASE_DIRECTORY = "./"
@@ -17,24 +20,24 @@ def process_file(**kwargs):
     file_name = kwargs.get('file_name')
 
     # Process step 2: Extract text from the file and save the exracted text to appropriate file.
-    #print(f"{TAG} Processing image file...")
-    # processed_file_content = process_image_files(file_name)
+    print(f"{TAG} Processing image file...")
+    processed_file_content = process_image_files(file_name)
     #print(f"{TAG} Appending new image data to texts_Image.txt")
     #print(f"{TAG} Text extracted from the file and saved to appropriate files")
 
-    #print(f"{TAG} The content of the processed file is now: {processed_file_content}")
+    print(f"{TAG} The content of the processed file is now: {processed_file_content}")
 
     
 # Example data for debugging
-    processed_file_content = """Response for picture1234.jpg:
-- The image shows a hand holding a white mug with a black floral pattern.
-- The mug has a handle on the right side.
-- The background is a plain, light-colored wall.
-- There is a shadow cast by the mug on the wall.
-- This line is not related to other data.
-- The hand appears to be that of an adult.
-- The mug is being held in a way that suggests it is being presented or shown off.
-- There are no other objects or people visible in the image."""
+#    processed_file_content = """Response for picture1234.jpg:
+#- The image shows a hand holding a white mug with a black floral pattern.
+#- The mug has a handle on the right side.
+#- The background is a plain, light-colored wall.
+#- There is a shadow cast by the mug on the wall.
+#- This line is not related to other data.
+#- The hand appears to be that of an adult.
+#- The mug is being held in a way that suggests it is being presented or shown off.
+#- There are no other objects or people visible in the image."""
 
     
     # Process step 3: Process the data that was extracted from the uploaded file:
@@ -95,8 +98,6 @@ def upload_file():
     return {'message': response_message}, 200
 
 def send_to_extracted_text_processing(processed_file_content):
-    HOST = "172.17.0.1"
-    PORT = 6500
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
