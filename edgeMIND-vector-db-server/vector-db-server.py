@@ -80,7 +80,10 @@ def store_data():
         faiss.write_index(index, index_file_path)
         print("Wrote new data to faiss index!")
 
-        return jsonify({"status": "success", "message": "Data stored successfully."})
+
+        msg = "Data stored successfully."
+        print(msg)
+        return jsonify({"status": "success", "message": msg})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
