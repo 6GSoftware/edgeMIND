@@ -36,7 +36,7 @@ services:
     networks:
       - edgemind_network
     ports:
-      - "5002:5000"
+      - "5002:5002"
     volumes:
       - ./image-processing-server:/app
      
@@ -45,7 +45,7 @@ services:
     networks:
       - edgemind_network
     ports:
-      - "5003:5000"
+      - "5003:5003"
     volumes:
       - ./audio-processing-server:/app
 
@@ -54,7 +54,7 @@ services:
     networks:
       - edgemind_network
     ports:
-      - "5004:5000"
+      - "5004:5004"
     volumes:
       - ./pdf-processing-server:/app
     env_file:

@@ -83,4 +83,4 @@ def send_to_extracted_text_processing(processed_file_content):
         print(f"{TAG}Connection failed: {e}")
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5004)
