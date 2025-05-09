@@ -226,6 +226,7 @@ def start_server():
 
             # Send the llm query result to the input processing layer for further processing
             input_layer_socket.sendall(llm_result.encode('utf-8'))
+            input_layer_socket.shutdown(socket.SHUT_WR)
             print("LLM result sent to the input layer (text processing and situational awareness)")
 
             response = input_layer_socket.recv(1024).decode('utf-8')
