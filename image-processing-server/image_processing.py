@@ -87,11 +87,6 @@ def process_image_files(new_file):
             f.write(f"Response for {new_file}:\n")  # Store the image file name
             f.write(response + "\n\n")
 
-        print(" ")
-        print("new_file:")
-        print(new_file)
-        print(" ")
-
         print(f"{TAG} Processed and saved response for {new_file}")
 
         return processed_file_content

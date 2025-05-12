@@ -25,10 +25,8 @@ def process_file(**kwargs):
     #print(f"{TAG} Appending new image data to texts_Image.txt")
     #print(f"{TAG} Text extracted from the file and saved to appropriate files")
 
-    print(f"{TAG} The content of the processed file is now: {processed_file_content}")
-
     
-# Example data for debugging
+    # Example data for debugging
 #    processed_file_content = """Response for picture1234.jpg:
 #- The image shows a hand holding a white mug with a black floral pattern.
 #- The mug has a handle on the right side.
@@ -39,6 +37,7 @@ def process_file(**kwargs):
 #- The mug is being held in a way that suggests it is being presented or shown off.
 #- There are no other objects or people visible in the image."""
 
+    print(f"{TAG} The content of the processed file is now: {processed_file_content}")
     
     # Process step 3: Process the data that was extracted from the uploaded file:
     # tokenize sentences and save them to appropriate file
