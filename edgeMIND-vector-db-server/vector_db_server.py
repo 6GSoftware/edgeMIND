@@ -6,7 +6,6 @@ import logging
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
-import socket
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +77,11 @@ def store_data():
 
         index.add(embeddings)
         faiss.write_index(index, index_file_path)
-        print("Wrote new data to faiss index!")
+        logging.info("Wrote new data to faiss index!")
 
 
         msg = "Data stored successfully."
-        print(msg)
+        logging.info(msg)
         return jsonify({"status": "success", "message": msg})
 
     except Exception as e:
@@ -94,7 +93,7 @@ def search_database():
     try:
         request_data = request.get_json()
         question = request_data['question']
-        print(f"Received: {question}")
+        logging.info(f"Received: {question}")
 
         #results = f"Your question was: {question}"
 
@@ -104,11 +103,11 @@ def search_database():
         #embedding_function = load_embedding_function()
 
         results = search_faiss_index(question, index, metadata, embedding_function)
-        print("Result from searching the faiss index:\n", results)
+        logging.info("Result from searching the faiss index:\n", results)
 
         #result_list = [result['text'] for result in results]
         #result_string = str(result_list)
-        #print(f"The result as a string: {result_string}\n")
+        #logging.info(f"The result as a string: {result_string}\n")
 
         result_as_json = json.dumps(str(results))
         #result_as_json = json.dumps(result_string)
@@ -119,5 +118,5 @@ def search_database():
         return jsonify({"status": "error", "message": str(e)}), 500
     
 
-if __name__ == '__main__':
-    app.run(host=DB_SERVER_IP, port=DB_SERVER_PORT)
+#if __name__ == '__main__':
+#    app.run(host=DB_SERVER_IP, port=DB_SERVER_PORT)

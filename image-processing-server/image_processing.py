@@ -13,6 +13,10 @@ processed_images.txt file to prevent processing the same file again.
 from PIL import Image
 import os
 from transformers import AutoModelForCausalLM, AutoProcessor
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 #from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
@@ -87,6 +91,6 @@ def process_image_files(new_file):
             f.write(f"Response for {new_file}:\n")  # Store the image file name
             f.write(response + "\n\n")
 
-        print(f"{TAG} Processed and saved response for {new_file}")
+        logging.info(f"{TAG} Processed and saved response for {new_file}")
 
         return processed_file_content

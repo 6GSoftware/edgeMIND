@@ -10,7 +10,10 @@ and the name of the file is saved in the processed_files.txt file to prevent pro
 
 import os
 import whisper  # Whisper model for audio transcription
+import logging
 #from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO)
 
 # Loads the environment variables from the .env file
 #load_dotenv()
@@ -22,7 +25,7 @@ audio_folder = './Audio'
 
 # Step 1: Initialize Whisper model for transcription
 model_whisper = whisper.load_model("base")
-print(f"{TAG} Whisper model loaded successfully.")
+(f"{TAG} Whisper model loaded successfully.")
 
 def transcribe_audio_files(audio_folder, new_file):
     """Load and process audio files, returning the transcriptions."""
@@ -33,18 +36,18 @@ def transcribe_audio_files(audio_folder, new_file):
     if new_file.endswith('.mp3') or new_file.endswith('.wav'):
 
         new_file_path = os.path.join(audio_folder, new_file)
-        print(f"{TAG} Processing file: {new_file_path}")
+        logging.info(f"{TAG} Processing file: {new_file_path}")
         
         # Transcribe the audio file using Whisper
         try:
             result = model_whisper.transcribe(new_file_path)
             transcription = result['text']
-            print(f"Transcription for {new_file}: {transcription}")
+            logging.info(f"Transcription for {new_file}: {transcription}")
             
             texts.append((new_file, transcription))  # Append the audio file name and transcription
         
         except Exception as e:
-            print(f"{TAG} Error transcribing {new_file}: {e}")
+            logging.info(f"{TAG} Error transcribing {new_file}: {e}")
             
     return texts
 
@@ -54,7 +57,7 @@ def process_audio_files(new_file):
     transcriptions = transcribe_audio_files(audio_folder, new_file)
     
     if not transcriptions:
-        print(f"{TAG} No new transcriptions were generated.")
+        logging.info(f"{TAG} No new transcriptions were generated.")
 
     return transcriptions
 
@@ -65,7 +68,7 @@ def process_audio_files(new_file):
     transcriptions = transcribe_audio_files(audio_folder, new_file)
 
     if not transcriptions:
-        print(f"{TAG} No new transcriptions were generated.")
+        logging.info(f"{TAG} No new transcriptions were generated.")
         return ""  # Return empty string if nothing was processed
 
     # Step 2: Build the combined text
@@ -74,5 +77,5 @@ def process_audio_files(new_file):
         combined_text += f"Transcription for {audio_file}:\n"
         combined_text += transcription + '\n\n'
 
-    print(f"{TAG} Processing complete. New transcriptions ready in memory.")
+    logging.info(f"{TAG} Processing complete. New transcriptions ready in memory.")
     return combined_text

@@ -8,6 +8,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
-
-CMD ["python3", "-u", "vector-db-server.py"]
+CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "600", "-b", "0.0.0.0:8000", "vector_db_server:app"]

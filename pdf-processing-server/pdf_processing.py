@@ -11,6 +11,9 @@ processed_files.txt file to prevent processing the same file again.
 import os
 from llama_parse import LlamaParse
 from dotenv import load_dotenv
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Loads the environment variables from the .env file
 load_dotenv()
@@ -42,11 +45,11 @@ def process_pdfs_with_llamaparse(new_file):
     if new_file.endswith(".pdf"):
         pdf_path = os.path.join(pdf_folder, new_file)
         try:
-            print(f"{TAG} Started parsing the file: {new_file}")
+            logging.info(f"{TAG} Started parsing the file: {new_file}")
             extracted_documents = parser.load_data(pdf_path)
 
             # Log the number of documents extracted
-            print(f"{TAG} Extracted {len(extracted_documents)} documents from {new_file}")
+            logging.info(f"{TAG} Extracted {len(extracted_documents)} documents from {new_file}")
 
             # Extract text from each document
             for doc in extracted_documents:
@@ -56,7 +59,7 @@ def process_pdfs_with_llamaparse(new_file):
             newly_processed_files.append(new_file)
 
         except Exception as e:
-            print(f"{TAG} Error while parsing the file '{pdf_path}': {e}")
+            logging.info(f"{TAG} Error while parsing the file '{pdf_path}': {e}")
 
     return texts, newly_processed_files
 

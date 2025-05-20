@@ -4,10 +4,15 @@ WORKDIR /app
 
 COPY requirements.txt .
 
+RUN pip install --upgrade pip
+
+RUN pip install --default-timeout=300 \
+    torch==2.6.0 \
+    torchvision==0.21.0 \
+    transformers==4.45.1
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 5002
-
-CMD ["python", "-u", "image_server.py"]
+CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "600", "-b", "0.0.0.0:5002", "image_server:app"]

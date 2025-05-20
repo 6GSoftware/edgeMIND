@@ -8,6 +8,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 6500
-
-CMD ["python", "-u", "extracted_text_processing.py"]
+CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "600", "-b", "0.0.0.0:6501", "extracted_text_processing:app"]
