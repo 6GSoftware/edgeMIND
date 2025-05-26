@@ -5,7 +5,7 @@ services:
     networks:
       - edgemind_network
     ports:
-      - "6000:6000"
+      - "5000:5000"
     volumes:
       - ./LLMquery-server-text:/app
 
@@ -15,7 +15,7 @@ services:
     networks:
       - edgemind_network
     ports:
-      - "6001:6001"
+      - "5001:5001"
     volumes:
       - ./LLMquery-server-audio:/app
 
