@@ -16,7 +16,8 @@ import torch
 from langchain.prompts import PromptTemplate
 #from diffusers import StableDiffusionPipeline
 #from diffusers import LCMScheduler, AutoPipelineForText2Image
-from diffusers import DiffusionPipeline
+#from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionXLPipeline
 from datetime import datetime
 import socket
 #import re
@@ -89,10 +90,15 @@ def start_server():
     pipe.fuse_lora()
     '''
 
-    # Test 3
+    # Test 3: with CPU
+    '''
     pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
     pipe = pipe.to("cpu")
+    '''
 
+    # Test 4: with GPU
+    pipe = StableDiffusionXLPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
+    pipe.to("cuda")
 
     # Create socket server for the mobile app to connect to
     mobile_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -125,18 +131,18 @@ def start_server():
             headers = {'Content-type': 'application/json'}
             # Post the user question to the vector database server and get the query result as response
             response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-            #response_as_json = response.json()
+            response_as_json = response.json()
             #db_result = response_as_json['message']
 
             #if response_as_json['status'] == 'error':
-            if response['status'] == 'error':
-                response_to_user = f"An error occurred in searching the vector database: {response['message']}"
+            if response_as_json['status'] == 'error':
+                response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
                 mobile_socket.sendall(response_to_user)
                 mobile_socket.close()
                 print("Connection closed with the mobile application due to an error")
                 continue    # TODO: check that this works!
 
-            db_result = response['message']
+            db_result = response_as_json['message']
 
             if db_result:
                 # Format prompt for image generation
@@ -151,7 +157,11 @@ def start_server():
                 # disable guidance_scale by passing 0
                 #image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
                 # Generate image
-                image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
+                image = pipe(
+                    prompt,
+                    num_inference_steps=30,  # NOTE: original num_inference_steps=25
+                    negative_prompt="text, cartoon, missing parts, poor quality",
+                ).images[0]
 
                 # Send the generated image to the mobile app
                 if image:

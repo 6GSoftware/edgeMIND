@@ -1,3 +1,5 @@
 torch==2.6.0
 langchain==0.3.0
 transformers==4.45.1
+diffusers==0.33.1
+accelerate==0.34.2
