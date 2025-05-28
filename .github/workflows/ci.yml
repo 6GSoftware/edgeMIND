@@ -1,0 +1,39 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ci-test]
+  pull_request:
+    branches: [ci-test]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build llm_query_server_text
+      run: docker build -t llm-query-text ./LLMquery-server-text
+
+    - name: Build llm_query_server_audio
+      run: docker build -t llm-query-audio ./LLMquery-server-audio
+
+    - name: Build vector_db_server
+      run: docker build -t vector-db ./edgeMIND-vector-db-server
+
+    - name: Build image-service
+      run: docker build -t image-service ./image-processing-server
+
+    - name: Build audio-service
+      run: docker build -t audio-service ./audio-processing-server
+
+    - name: Build pdf-service
+      run: docker build -t pdf-service ./pdf-processing-server
+
+    - name: Build situational_awareness_server
+      run: docker build -t situational-awareness ./situational-awareness-server
