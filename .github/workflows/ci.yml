@@ -1,4 +1,4 @@
-name: CI Build
+name: CI Build - Split Services
 
 on:
   push:
@@ -7,33 +7,51 @@ on:
     branches: [ci-test]
 
 jobs:
-  build:
+  build-image-service:
+    name: Build Image Service
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+    - run: docker build -t image-service ./image-processing-server
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+  build-audio-service:
+    name: Build Audio Service
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker build -t audio-service ./audio-processing-server
 
-    - name: Build llm_query_server_text
-      run: docker build -t llm-query-text ./LLMquery-server-text
+  build-pdf-service:
+    name: Build PDF Service
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker build -t pdf-service ./pdf-processing-server
 
-    - name: Build llm_query_server_audio
-      run: docker build -t llm-query-audio ./LLMquery-server-audio
+  build-vector-db:
+    name: Build Vector DB Server
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker build -t vector-db ./edgeMIND-vector-db-server
 
-    - name: Build vector_db_server
-      run: docker build -t vector-db ./edgeMIND-vector-db-server
+  build-llm-query-text:
+    name: Build LLM Query Text
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker build -t llm-query-text ./LLMquery-server-text
 
-    - name: Build image-service
-      run: docker build -t image-service ./image-processing-server
+  build-llm-query-audio:
+    name: Build LLM Query Audio
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker build -t llm-query-audio ./LLMquery-server-audio
 
-    - name: Build audio-service
-      run: docker build -t audio-service ./audio-processing-server
-
-    - name: Build pdf-service
-      run: docker build -t pdf-service ./pdf-processing-server
-
-    - name: Build situational_awareness_server
-      run: docker build -t situational-awareness ./situational-awareness-server
+  build-situational-awareness:
+    name: Build Situational Awareness Server
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: docker build -t situational-awareness ./situational-awareness-server
