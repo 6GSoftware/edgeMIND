@@ -21,8 +21,6 @@ BASE_DIRECTORY = "./"
 IMAGE_DIRECTORY = os.path.join(BASE_DIRECTORY, "Pictures/")
 os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
-app = Flask(__name__)
-
 @app.route("/health", methods=["GET"])
 def health():
     return {"status": "ok"}, 200
