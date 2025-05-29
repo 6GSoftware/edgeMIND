@@ -19,8 +19,15 @@ jobs:
     - name: Run container
       run: docker run -d -p 5002:5002 --name image-service image-service
 
-    - name: Wait for service to start
-      run: sleep 10
+    - name: Wait for service
+      run: |
+        for i in {1..10}; do
+          echo "Waiting for service... attempt $i"
+          curl -f http://localhost:5002/health && exit 0
+          sleep 2
+        done
+        echo "Service did not become ready in time." >&2
+        exit 1
 
     - name: Install test dependencies
       run: pip install requests

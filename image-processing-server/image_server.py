@@ -14,7 +14,6 @@ app = Flask(__name__)
 from image_processing import process_image_files
 
 HOST = "situational_awareness_server"
-MEASUREMENT_URL = "http://192.168.0.8:5050/log"
 
 TAG = "image_service: "
 
@@ -48,22 +47,6 @@ def process_file(**kwargs):
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
 
     end_time = time.perf_counter()
-
-    # Send timing to measurement service
-    try:
-        response = requests.post(MEASUREMENT_URL, json={
-            "service": "image_service",
-            "metric": "processing_time",
-            "value": end_time - start_time
-        })
-        if response.ok:
-            logging.info(f"{TAG} Sent processing time to measurement service.")
-        else:
-            logging.warning(f"{TAG} Failed to send metric: {response.status_code}")
-    except Exception as e:
-        logging.error(f"{TAG} Failed to report metric: {e}")
-
-    return
     
     # Process step 3: Process the data that was extracted from the uploaded file:
     # tokenize sentences and save them to appropriate file
@@ -148,34 +131,3 @@ def send_to_extracted_text_processing(processed_file_content):
 
 #if __name__ == '__main__':
 #    app.run(host="0.0.0.0", port=5002)
-
-
-def monitor_temperature():
-    while True:
-        try:
-            temps = psutil.sensors_temperatures()
-            if temps:
-                for chip, entries in temps.items():
-                    for entry in entries:
-                        current_temp = entry.current
-                        label = entry.label or chip
-                        logging.info(f"{TAG} Temperature [{label}]: {current_temp}°C")
-
-                        #try:
-                        #    response = requests.post(MEASUREMENT_URL, json={
-                        #        "service": "image_service",
-                        #        "metric": f"temperature_{label}",
-                        #        "value": current_temp
-                        #    })
-                        #    if not response.ok:
-                        #        logging.warning(f"{TAG} Failed to send temperature: {response.status_code}")
-                        #except Exception as e:
-                        #    logging.error(f"{TAG} Failed to report temperature: {e}")
-
-            else:
-                logging.warning(f"{TAG} No temperature data available on this system.")
-        except Exception as e:
-            logging.error(f"{TAG} Temperature monitoring error: {e}")
-        
-        time.sleep(10)
-
