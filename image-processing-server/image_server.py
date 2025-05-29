@@ -5,6 +5,7 @@ import socket
 import time
 import logging
 import requests
+import psutil
 
 logging.basicConfig(level=logging.INFO)
 
@@ -13,6 +14,7 @@ app = Flask(__name__)
 from image_processing import process_image_files
 
 HOST = "situational_awareness_server"
+MEASUREMENT_URL = "http://192.168.0.8:5050/log"
 
 TAG = "image_service: "
 
@@ -22,13 +24,18 @@ os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
 app = Flask(__name__)
 
+@app.route("/health", methods=["GET"])
+def health():
+    return {"status": "ok"}, 200
+
 def process_file(**kwargs):
     file_name = kwargs.get('file_name')
 
     # Extract text from the file and save the exracted text to appropriate file.
     logging.info(f"{TAG} Processing image file...")
+    start_time = time.perf_counter()
     processed_file_content = process_image_files(file_name)
-    
+
     # Example data for debugging
 #    processed_file_content = """Response for picture1234.jpg:
 #- The image shows a hand holding a white mug with a black floral pattern.
@@ -38,21 +45,31 @@ def process_file(**kwargs):
 #- The hand appears to be that of an adult.
 #- The mug is being held in a way that suggests it is being presented or shown off.
 #- There are no other objects or people visible in the image."""
-
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
+
+    end_time = time.perf_counter()
+
+    # Send timing to measurement service
+    try:
+        response = requests.post(MEASUREMENT_URL, json={
+            "service": "image_service",
+            "metric": "processing_time",
+            "value": end_time - start_time
+        })
+        if response.ok:
+            logging.info(f"{TAG} Sent processing time to measurement service.")
+        else:
+            logging.warning(f"{TAG} Failed to send metric: {response.status_code}")
+    except Exception as e:
+        logging.error(f"{TAG} Failed to report metric: {e}")
+
+    return
     
     # Process step 3: Process the data that was extracted from the uploaded file:
     # tokenize sentences and save them to appropriate file
     send_to_extracted_text_processing(processed_file_content)
     #processed_file_content = process_extracted_texts(processed_file_content)
-    logging.info(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
 
-    logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
-    
-    # Process step 4:
-    #vectorize_and_save_to_vector_db()
-    #logging.info(f"{TAG} The texts have been vectorized and saved to the faiss index")
-    
     logging.info(f"{TAG} Process complete!\n")
 
 def save_file(file_name, file):
@@ -131,3 +148,34 @@ def send_to_extracted_text_processing(processed_file_content):
 
 #if __name__ == '__main__':
 #    app.run(host="0.0.0.0", port=5002)
+
+
+def monitor_temperature():
+    while True:
+        try:
+            temps = psutil.sensors_temperatures()
+            if temps:
+                for chip, entries in temps.items():
+                    for entry in entries:
+                        current_temp = entry.current
+                        label = entry.label or chip
+                        logging.info(f"{TAG} Temperature [{label}]: {current_temp}°C")
+
+                        #try:
+                        #    response = requests.post(MEASUREMENT_URL, json={
+                        #        "service": "image_service",
+                        #        "metric": f"temperature_{label}",
+                        #        "value": current_temp
+                        #    })
+                        #    if not response.ok:
+                        #        logging.warning(f"{TAG} Failed to send temperature: {response.status_code}")
+                        #except Exception as e:
+                        #    logging.error(f"{TAG} Failed to report temperature: {e}")
+
+            else:
+                logging.warning(f"{TAG} No temperature data available on this system.")
+        except Exception as e:
+            logging.error(f"{TAG} Temperature monitoring error: {e}")
+        
+        time.sleep(10)
+
