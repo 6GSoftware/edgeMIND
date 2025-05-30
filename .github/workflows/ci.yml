@@ -30,6 +30,7 @@ jobs:
           sleep 1
         done
         echo "Service did not become ready in time."
+        docker logs image-service   # <-- Log container output to help debug
         exit 1
 
     - name: Install test dependencies
