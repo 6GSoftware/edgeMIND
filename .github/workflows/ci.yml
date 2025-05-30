@@ -30,8 +30,8 @@ jobs:
     #    docker logs image-service   # <-- ⬅⬅ ADD THIS TO SEE WHY IT FAILED
     #    exit 1
 #
-    #- name: Install test dependencies
-    #  run: pip install requests
+    - name: Install test dependencies
+      run: pip install requests
 #
     #- name: Run smoke test
     #  run: python tests/smoke_test.py
