@@ -22,7 +22,13 @@ logging.basicConfig(level=logging.INFO)
 # Loads the environment variables from the .env file
 #load_dotenv()
 
-from download_phi_3_5_vision import model, processor
+model = None
+processor = None
+
+if os.getenv("SKIP_MODEL_LOADING") == "1":
+    print("Skipping model loading for CI.")
+else:
+    from download_phi_3_5_vision import model, processor
 
 TAG = "image_processing:  "
 
@@ -33,6 +39,9 @@ combined_text_file = './emultimodal_extracted_data.txt'
 
 
 def process_image_files(new_file):
+    if model is None or processor is None:
+        logging.warning(f"{TAG} Model is not loaded. Skipping processing for CI.")
+        return f"Skipped processing {new_file} (CI mode)\n"
 
     # Process each image individually
     if new_file.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
