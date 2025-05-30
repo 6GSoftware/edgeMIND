@@ -19,20 +19,22 @@ jobs:
     - name: Run container
       run: docker run -d -p 5002:5002 --name image-service image-service
 
-    #- name: Wait for service
-    #  run: |
-    #    for i in {1..120}; do
-    #      echo "Waiting for service... attempt $i"
-    #      sleep 3
-    #      curl -f http://localhost:5002/health && exit 0
-    #    done
-    #    echo "Service did not become ready in time." >&2
-    #    docker logs image-service   # <-- ⬅⬅ ADD THIS TO SEE WHY IT FAILED
-    #    exit 1
-#
+    - name: Wait for service
+      run: |
+        for i in {1..30}; do
+          echo "Waiting for service... attempt $i"
+          if curl -f http://localhost:5002/health; then
+            echo "Service is healthy!"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Service did not become ready in time."
+        exit 1
+
     - name: Install test dependencies
       run: pip install requests
-#
+
     - name: Run smoke test
       run: python tests/smoke_test.py
 
