@@ -16,7 +16,7 @@ jobs:
     - name: Build Docker image
       run: docker build -t image-service ./image-processing-server
 
-    - name: Run container (skip model loading for CI)
+    - name: Run container
       run: |
         docker run -d \
           -p 5002:5002 \
@@ -35,7 +35,6 @@ jobs:
           sleep 1
         done
         echo "Service did not become ready in time."
-        docker logs image-service   # <-- Log container output to help debug
         exit 1
 #
     #- name: Install test dependencies
@@ -43,6 +42,9 @@ jobs:
 #
     #- name: Run smoke test
     #  run: python tests/smoke_test.py
+
+
+
 
   build-audio-service:
     name: Build Audio Service
