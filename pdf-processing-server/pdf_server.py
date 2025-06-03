@@ -5,6 +5,7 @@ import socket
 
 from pdf_processing import process_pdf_files
 
+#HOST = "localhost"      #NOTE use when running outside of container
 HOST = "situational_awareness_server"
 PORT = 6500
 
@@ -27,6 +28,8 @@ def process_file(**kwargs):
 
 def save_file(file_name, file):
     """Save the uploaded file to an appropriate directory"""
+    print(f"The file name is: {file_name}")
+    print(f"The file is: {file}")
 
     # Determine file type and set the appropriate directory
     directory = PDF_DIRECTORY
@@ -37,6 +40,7 @@ def save_file(file_name, file):
 
     # Create full file path
     file_path = os.path.join(directory, file_name)
+    print(f"The file path is: {file_path}")
 
     # Save received file to appropriate folder
     file.save(f"{file_path}")
@@ -79,6 +83,7 @@ def send_to_extracted_text_processing(processed_file_content):
             s.shutdown(socket.SHUT_WR)
             response = s.recv(1024)
             print(f"{TAG}Response from the processor: {response.decode('utf-8')}")
+            s.close()
     except Exception as e:
         print(f"{TAG}Connection failed: {e}")
 

@@ -103,6 +103,30 @@ def filter_generated_text(generated_text, retrieved_texts):
     return filtered_text
 
 
+def query_database(user_question, mobile_socket):
+    # Data to be sent
+    post_data = {
+        'question': user_question
+    }
+
+    # Defining content type for the payload
+    headers = {'Content-type': 'application/json'}
+    # Post the user question to the vector database server and get the query result as response
+    response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+    response_as_json = response.json()
+    #db_result = response_as_json['message']
+    print(f"response from db server: {response_as_json}")
+
+    if response_as_json['status'] == 'error':
+        response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
+        mobile_socket.sendall(response_to_user)
+        mobile_socket.close()
+        print("Connection closed with the mobile application due to an error")
+        return
+
+    return response_as_json['message']
+
+
 def query_llm(generation_args, pipe, db_query_result, user_question):
     """Handle a connected client: \n
     - receive query from the client and send it to the vector database server.
@@ -181,28 +205,10 @@ def start_server():
             now=datetime.now()
             print(now)
 
-            # Data to be sent
-            post_data = {
-                'question': user_question
-            }
+            db_result = query_database(user_question, mobile_socket)
 
-            # Defining content type for the payload
-            headers = {'Content-type': 'application/json'}
-            # Post the user question to the vector database server and get the query result as response
-            response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-            response_as_json = response.json()
-            #db_result = response_as_json['message']
-            print(f"response from db server: {response_as_json}")
-
-            #if response_as_json['status'] == 'error':
-            if response_as_json['status'] == 'error':
-                response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
-                mobile_socket.sendall(response_to_user)
-                mobile_socket.close()
-                print("Connection closed with the mobile application due to an error")
-                continue    # TODO: check that this works!
-
-            db_result = response_as_json['message']
+            if db_result == None:
+                continue    # TODO: check that this works!!!
 
             # Query the llm
             llm_result = query_llm(generation_args, pipe, db_result, user_question)

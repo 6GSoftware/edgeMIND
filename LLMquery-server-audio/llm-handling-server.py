@@ -9,7 +9,8 @@ This module is the edgeMIND user query processing server. This module:
     > sends the generated response back to the user.
 """
 
-#import os
+#import os       #NOTE use outside containers
+#os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64,expandable_segments:True" #NOTE use outside containers
 import json
 import torch
 #from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -17,7 +18,7 @@ from langchain.prompts import PromptTemplate
 #from diffusers import StableDiffusionPipeline
 #from diffusers import LCMScheduler, AutoPipelineForText2Image
 #from diffusers import DiffusionPipeline
-from diffusers import StableDiffusionXLPipeline
+from diffusers import StableDiffusionXLPipeline    # NOTE for GPU
 from datetime import datetime
 import socket
 #import re
@@ -39,7 +40,6 @@ SERVER_PORT_MOBILE = 5001   # NOTE: port 5001 for the image generation server
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
 
 model_path = "./saved_LLM_model"
-#model_path = "./saved_LLM_model"   #NOTE: Use in testing outside container
 
 # Define the prompt template for the assistant
 prompt_template = """
@@ -157,11 +157,15 @@ def start_server():
                 # disable guidance_scale by passing 0
                 #image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
                 # Generate image
+
+                #torch.cuda.empty_cache()    #NOTE use outside containers, comment out when using containers
+                
                 image = pipe(
                     prompt,
-                    num_inference_steps=30,  # NOTE: original num_inference_steps=25
+                    num_inference_steps=50,  # NOTE: original num_inference_steps=25
                     negative_prompt="text, cartoon, missing parts, poor quality",
                 ).images[0]
+                
 
                 # Send the generated image to the mobile app
                 if image:

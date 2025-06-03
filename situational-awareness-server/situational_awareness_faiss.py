@@ -17,6 +17,7 @@ import requests
 
 TAG = "situational_awareness_faiss:  "
 VECTOR_DB_URL = "http://vector_db_server:8000/store"
+#VECTOR_DB_URL = "http://localhost:8000/store"      #NOTE use when running outside container
 
 file_path = './Pre_processed_text.txt'
 
