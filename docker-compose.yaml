@@ -37,6 +37,8 @@ services:
       - "5002:5002"
     volumes:
       - ./image-processing-server:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
      
   audio-service:
     build: ./audio-processing-server

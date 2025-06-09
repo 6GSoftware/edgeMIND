@@ -16,11 +16,14 @@ HOST = "situational_awareness_server"
 
 TAG = "image_service: "
 
+MONITOR_URL = "http://host.docker.internal:5006/recording"
+
 BASE_DIRECTORY = "./"
 IMAGE_DIRECTORY = os.path.join(BASE_DIRECTORY, "Pictures/")
 os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
 app = Flask(__name__)
+
 
 def process_file(**kwargs):
     file_name = kwargs.get('file_name')
@@ -39,6 +42,16 @@ def process_file(**kwargs):
 #- The mug is being held in a way that suggests it is being presented or shown off.
 #- There are no other objects or people visible in the image."""
 
+    try:
+        res = requests.post(MONITOR_URL, json={"state": "stop"})
+        logging.info("Stopped monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to stop monitoring:", e)
+
+
+    logging.info("DONE!")
+    return
+
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
     
     # Process step 3: Process the data that was extracted from the uploaded file:
@@ -54,6 +67,7 @@ def process_file(**kwargs):
     #logging.info(f"{TAG} The texts have been vectorized and saved to the faiss index")
     
     logging.info(f"{TAG} Process complete!\n")
+
 
 def save_file(file_name, file):
     """Save the uploaded file to an appropriate directory"""
@@ -74,9 +88,19 @@ def save_file(file_name, file):
 
     return 'File uploaded and saved successfully'
 
+
 @app.route('/upload_image', methods=['POST'])
 def upload_file():
     """Handle http POST request from the client and receive a file."""
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "edgemind-image-service-1"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
 
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
