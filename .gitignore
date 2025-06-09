@@ -56,6 +56,7 @@ workflow_documentation.md
 /Input-side-server
 /testing
 requirements_test.txt
+*.csv
 
 # Image files used in testing
 /LLMquery-server-audio/*.png
