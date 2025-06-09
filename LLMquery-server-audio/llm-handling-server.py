@@ -23,6 +23,7 @@ from datetime import datetime
 import socket
 #import re
 import requests
+from eco2ai import set_params, Tracker
 
 #-------------------------------------------------------------------------------------------------
 
@@ -55,6 +56,14 @@ PROMPT = PromptTemplate(
     template=prompt_template,
     input_variables=["context", "question"]
 )
+
+# For tracking CO2 emissions and energy usage
+set_params(
+    project_name="text-to-image generation service", 
+    experiment_description="generating image based on user question and vector database query results",
+    file_name="image_generation_emission2.csv"
+)
+print("Parameters set for emissions tracking")
 
 #---------------------------------------------------------------------------------------------------
 
@@ -111,6 +120,10 @@ def start_server():
             # Accept incoming connection from the mobile app
             mobile_socket, mobile_address = mobile_server_socket.accept()
             print(f"Connection established with {mobile_address}")
+
+            tracker = Tracker() # Start tracking...
+            print("Start tracking...")
+            tracker.start()
 
             # Get query question from client
             user_question = mobile_socket.recv(1024).decode('utf-8')
@@ -197,6 +210,10 @@ def start_server():
 
         except Exception as e:
             print(f"An error occurred: {e}")
+
+        finally:
+            print("Stop tracking")
+            tracker.stop()
 
 
 if __name__ == "__main__":

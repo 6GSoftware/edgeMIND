@@ -1,3 +1,4 @@
+from urllib.parse import uses_params
 from flask import Flask, request, jsonify
 from datetime import datetime
 import faiss
@@ -6,7 +7,7 @@ import logging
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
-import socket
+from eco2ai import set_params, Tracker
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,13 @@ DB_SERVER_PORT = 8000
 
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
+# For tracking CO2 emissions and energy usage
+set_params(
+    project_name="vector database service", 
+    experiment_description="fetching information from vector database",
+    file_name="vector_db_emission2.csv"
+)
+print("Parameters set for emissions tracking")
 
 
 def load_metadata(file_path):
@@ -39,6 +47,11 @@ def load_faiss_index(index_file_path):
 def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     """Search FAISS index for the closest topic."""
 
+    # Track emissions and energy usage
+    tracker = Tracker()
+    logger.info("Start tracking...")
+    tracker.start()
+
     # Do the actual search to the faiss index
     query_embedding = embedding_function.encode([query_text]).astype('float32')  # Generate query embedding
     distances, indices = index.search(query_embedding, k)  # Retrieve top-k results
@@ -54,6 +67,10 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
             "timestamp": result_entry["timestamp"],
             #"distance": distances[0][i]
         })
+
+    logger.info("Stop tracking")
+    tracker.stop()
+    logger.info("Tracking stopped!")
     
     return results
 
@@ -91,6 +108,9 @@ def store_data():
 
 @app.route('/search', methods=['POST'])
 def search_database():
+    tracker = Tracker()
+    logger.info("Start tracking...")
+    tracker.start()
     try:
         request_data = request.get_json()
         question = request_data['question']
@@ -113,9 +133,15 @@ def search_database():
         result_as_json = json.dumps(str(results))
         #result_as_json = json.dumps(result_string)
 
+        logger.info("Stop tracking")
+        tracker.stop()
+        logger.info("Tracking stopped!")
+
         return jsonify({"status": "success", "message": result_as_json})
 
     except Exception as e:
+        logger.info("Stop tracking due to an error")
+        tracker.stop()
         return jsonify({"status": "error", "message": str(e)}), 500
     
 
