@@ -185,7 +185,7 @@ def process_query():
         input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
         logging.info(f"Received from the input side: {input_response.text}")
 
-        return jsonify({'status': 'ok', 'message': llm_result})
+        return jsonify({'status': 'ok', 'text': llm_result})
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
