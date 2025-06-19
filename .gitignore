@@ -57,6 +57,8 @@ workflow_documentation.md
 /testing
 requirements_test.txt
 *.csv
+locustfile.py
 
 # Image files used in testing
 /LLMquery-server-audio/*.png
+/image-generation/*.png
