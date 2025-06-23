@@ -60,28 +60,6 @@ generation_successful = False
 pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
 pipe = pipe.to("cpu")
 
-@app.route("/generate-image", methods=["POST"])
-def generate_image():
-
-    try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "start",
-            "service-name": "llm_query_server_audio"
-        })
-        logging.info("Started monitoring:", res.json())
-    except Exception as e:
-        logging.info("Failed to start monitoring:", e)
-
-    try:
-        data = request.get_json()
-        user_question = data.get("question")
-
-        if not user_question:
-            return jsonify({"status": "error", "message": "No question provided"}), 400
-        
-        logging.info(f"Received from client: {user_question}")
-
-
 def set_response(stat, msg, stat_code):
     global status
     global message
@@ -128,15 +106,6 @@ def do_image_generation(**kwargs):
 
             image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
 
-            try:
-                res = requests.post(MONITOR_URL, json={
-                    "state": "stop",
-                    "service-name": "llm_query_server_audio"
-                }, timeout=2)
-                logging.info(f"Started monitoring: {res.json()}")
-            except Exception as e:
-                logging.warning(f"Monitoring service not available: {e}")
-
             # Send the generated image to the mobile app
             if image:
                 generation_successful = True
@@ -149,6 +118,15 @@ def do_image_generation(**kwargs):
 
 @app.route("/generate-image", methods=["POST"])
 def generate_image():
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "llm_query_server_audio"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
+    
     try:
         data = request.get_json()
         user_question = data.get("question")
@@ -233,6 +211,15 @@ def poll_image():
         
         with open("output.png", "rb") as img_file:
             encoded_img_string = base64.b64encode(img_file.read()).decode('utf-8')
+
+        try:
+            res = requests.post(MONITOR_URL, json={
+                "state": "stop",
+                "service-name": "llm_query_server_audio"
+            }, timeout=2)
+            logging.info(f"Stopped monitoring: {res.json()}")
+        except Exception as e:
+            logging.warning(f"Monitoring service not available: {e}")
 
         generation_successful = False   # Set back to default value
 
