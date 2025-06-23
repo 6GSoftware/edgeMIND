@@ -38,9 +38,7 @@ def process_file(**kwargs):
     except Exception as e:
         logging.warning(f"Monitoring service not available: {e}")
 
-    logging.info(f"DONE")
-
-    #send_to_extracted_text_processing(processed_file_content)
+    send_to_extracted_text_processing(processed_file_content)
 
 def save_file(file_name, file):
     """Save the uploaded file to an appropriate directory"""
