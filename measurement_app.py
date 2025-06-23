@@ -1,4 +1,4 @@
-import docker
+
 import time
 from flask import Flask, request
 import logging
@@ -22,16 +22,12 @@ save_measurements = True
 executing_service = ""
 
 def monitor_stats():
-    client = docker.from_env()
 
     while True:
 
         print("")
         print("------------------------------------")
         print("")
-
-        containers = client.containers.list()
-        container_names = [container.name for container in containers]
 
         try:
             cpu_percent = psutil.cpu_percent(interval=0.1)
@@ -42,8 +38,8 @@ def monitor_stats():
             mem_total = virtual_mem.total
             mem_percent = virtual_mem.percent
 
-            mem_used_gb = round(psutil.virtual_memory().used / (1024 ** 3), 2)
-            mem_total_gb = round(psutil.virtual_memory().total / (1024 ** 3), 2)
+            mem_used_mb = round(psutil.virtual_memory().used / (1024 ** 2), 1)
+            mem_total_mb = round(psutil.virtual_memory().total / (1024 ** 2), 1)
 
             print(f"CPU % (System):   {cpu_percent:.2f}%")
             print(f"Memory (System): {format_bytes(mem_used)} / {format_bytes(mem_total)} ({mem_percent:.2f}%)")
@@ -97,8 +93,8 @@ def monitor_stats():
                         #", ".join(container_names),
                         f"{cpu_percent:.1f}", 
                         f"{cpu_clock_ghz:.1f}",
-                        f"{mem_used_gb:.1f}",
-                        f"{mem_total_gb:.1f}",
+                        f"{mem_used_mb:.1f}",
+                        f"{mem_total_mb:.1f}",
                         f"{mem_percent:.1f}",
                         f"{gpu_load:.1f}" if gpu_load is not None else "N/A",
                         f"{gpu_temp:.1f}" if gpu_temp is not None else "N/A",
