@@ -10,6 +10,7 @@ This module is the edgeMIND user query processing server. This module:
 """
 
 import json
+import threading
 import torch
 from langchain.prompts import PromptTemplate
 from diffusers import DiffusionPipeline
@@ -45,21 +46,34 @@ PROMPT = PromptTemplate(
     input_variables=["context", "question"]
 )
 
+# Variables for saving vector database querying status information
+status = 'status'
+message = 'message'
+status_code = 0
+
+# Variable for saving image generation success notification
+generation_successful = False
+
 # Test 3
 pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
 pipe = pipe.to("cpu")
 
-@app.route("/generate-image", methods=["POST"])
-def generate_image():
+
+def set_response(stat, msg, stat_code):
+    global status
+    global message
+    global status_code
+
+    status = stat
+    message = msg
+    status_code = stat_code
+
+def do_image_generation(**kwargs):
+    global generation_successful
+
+    user_question = kwargs.get('user_question')
+
     try:
-        data = request.get_json()
-        user_question = data.get("question")
-
-        if not user_question:
-            return jsonify({"status": "error", "message": "No question provided"}), 400
-        
-        logging.info(f"Received from client: {user_question}")
-
         # Data to be sent to the database layer
         post_data = {
             'question': user_question
@@ -73,11 +87,11 @@ def generate_image():
         #db_result = response_as_json['message']
 
         if response.status_code != 200:
-            return jsonify({"status": "error", "message": "Vector DB error"}), 500
+            set_response('error', 'Vector DB error', 500)
 
         response_data = response.json()
         if response_data.get('status') == 'error':
-            return jsonify({"status": "error", "message": response_data.get('message')}), 500
+            set_response('error', response_data.get('message'), 500)
 
         db_result = response_data['message']
 
@@ -91,27 +105,107 @@ def generate_image():
 
             image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
 
-            # Send the generated image to the mobile app
+            # Save the generated image inside the container
             if image:
-                image.save("./output.png")  # Save image to disk for now
-                # In addition, send the image to the mobile app: convert image to base64
-                buffered = io.BytesIO()
-                image.save(buffered, format="PNG")  # or JPEG for smaller size
-                image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                return jsonify({"status": "success", "image": image_base64})
-            else:
-                return jsonify({"status": "error", "message": "Image generation failed"}), 500
+                generation_successful = True
+                image.save("./output.png")
+    except Exception as e :
+        generation_successful = False
+        logging.error('Error in image generation: ', str(e))
+        set_response('error', 'Image generation failed, please try again', 500)
 
-        return jsonify({
-            "status": "error",
-            "message": "I couldn't find relevant information for your query. Could you provide more details?"
-        }), 200
+
+@app.route("/generate-image", methods=["POST"])
+def generate_image():
+    try:
+        data = request.get_json()
+        user_question = data.get("question")
+
+        if not user_question:
+            return jsonify({"status": "error", "message": "No question provided"}), 400
+        
+        logging.info(f"Received from client: {user_question}")
+
+        # Generate the image in another thread
+        thread = threading.Thread(target=do_image_generation, kwargs={
+                        'user_question': user_question})
+        thread.start()
+
+        return jsonify({"status": "pending", "image": "Image generation in progress..."}), 202
+
+        # Data to be sent to the database layer
+        #post_data = {
+        #    'question': user_question
+        #}
+#
+        ## Defining content type for the payload
+        #headers = {'Content-type': 'application/json'}
+        ## Post the user question to the vector database server and get the query result as response
+        #response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+        ##response_as_json = response.json()
+        ##db_result = response_as_json['message']
+#
+        #if response.status_code != 200:
+        #    return jsonify({"status": "error", "message": "Vector DB error"}), 500
+#
+        #response_data = response.json()
+        #if response_data.get('status') == 'error':
+        #    return jsonify({"status": "error", "message": response_data.get('message')}), 500
+#
+        #db_result = response_data['message']
+#
+        #if db_result:
+        #    # Format prompt for image generation
+        #    prompt = PROMPT.format(context=db_result, question=user_question)
+#
+        #    # Counting the words for testing...
+        #    prompt_word_count = len(prompt.split())
+        #    logging.info(f"The word count of the prompt is {prompt_word_count}")
+#
+        #    image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
+#
+        #    # Send the generated image to the mobile app
+        #    if image:
+        #        image.save("./output.png")  # Save image to disk for now
+        #        # In addition, send the image to the mobile app: convert image to base64
+        #        buffered = io.BytesIO()
+        #        image.save(buffered, format="PNG")  # or JPEG for smaller size
+        #        image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        #        return jsonify({"status": "success", "image": image_base64})
+        #    else:
+        #        return jsonify({"status": "error", "message": "Image generation failed"}), 500
+#
+        #return jsonify({
+        #    "status": "error",
+        #    "message": "I couldn't find relevant information for your query. Could you provide more details?"
+        #}), 200
 
     except Exception as e:
         logging.exception("Exception in /generate-image")
         return jsonify({"status": "error", "message": str(e)}), 500
+    
 
+@app.route("/poll-image", methods=["GET"])
+def poll_image():
+    global status
+    global message
+    global status_code
+    global generation_successful
 
-#if __name__ == '__main__':
-#    threading.Thread(target=start_server, daemon=True).start()
-#    app.run(host='0.0.0.0', port=6001)
+    try:
+        if status == 'error' or status_code == 500:
+            return jsonify({'status': status, 'message': message}), status_code
+
+        if not generation_successful:
+            return jsonify({'status': 'pending', 'message': 'Image generation in progress...'}), 200
+        
+        with open("output.png", "rb") as img_file:
+            encoded_img_string = base64.b64encode(img_file.read()).decode('utf-8')
+
+        generation_successful = False   # Set back to default value
+
+        return jsonify({'status': 'ok', 'image': encoded_img_string}), 200
+
+    except Exception as e:
+        logging.error('Error in polling the image: ', str(e))
+        return jsonify({'status': 'error', 'message': 'Request failed, please try again'}), 500
