@@ -32,6 +32,8 @@ torch.random.manual_seed(0)
 #VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
 
+MONITOR_URL = "http://host.docker.internal:5006/status"
+
 model_path = "./saved_LLM_model"
 
 # Define the prompt template for the assistant
@@ -51,6 +53,16 @@ pipe = pipe.to("cpu")
 
 @app.route("/generate-image", methods=["POST"])
 def generate_image():
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "llm_query_server_audio"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
+
     try:
         data = request.get_json()
         user_question = data.get("question")
@@ -90,6 +102,15 @@ def generate_image():
             logging.info(f"The word count of the prompt is {prompt_word_count}")
 
             image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
+
+            try:
+                res = requests.post(MONITOR_URL, json={
+                    "state": "stop",
+                    "service-name": "llm_query_server_audio"
+                }, timeout=2)
+                logging.info(f"Started monitoring: {res.json()}")
+            except Exception as e:
+                logging.warning(f"Monitoring service not available: {e}")
 
             # Send the generated image to the mobile app
             if image:

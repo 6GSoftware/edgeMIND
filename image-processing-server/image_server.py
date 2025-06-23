@@ -5,6 +5,7 @@ import socket
 import time
 import logging
 import requests
+import multiprocessing as mp
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,7 +17,7 @@ HOST = "situational_awareness_server"
 
 TAG = "image_service: "
 
-MONITOR_URL = "http://host.docker.internal:5006/recording"
+MONITOR_URL = "http://host.docker.internal:5006/status"
 
 BASE_DIRECTORY = "./"
 IMAGE_DIRECTORY = os.path.join(BASE_DIRECTORY, "Pictures/")
@@ -43,14 +44,13 @@ def process_file(**kwargs):
 #- There are no other objects or people visible in the image."""
 
     try:
-        res = requests.post(MONITOR_URL, json={"state": "stop"})
-        logging.info("Stopped monitoring:", res.json())
+        res = requests.post(MONITOR_URL, json={
+            "state": "stop",
+            "service-name": "edgemind-image-service"
+        }, timeout=2)
+        logging.info(f"Started monitoring: {res.json()}")
     except Exception as e:
-        logging.info("Failed to stop monitoring:", e)
-
-
-    logging.info("DONE!")
-    return
+        logging.warning(f"Monitoring service not available: {e}")
 
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
     
@@ -96,7 +96,7 @@ def upload_file():
     try:
         res = requests.post(MONITOR_URL, json={
             "state": "start",
-            "service-name": "edgemind-image-service-1"
+            "service-name": "edgemind-image-service"
         })
         logging.info("Started monitoring:", res.json())
     except Exception as e:
@@ -108,7 +108,7 @@ def upload_file():
     file = request.files['file']
     if file.filename == '':
         return {'message': 'No selected file'}, 400
-    
+
     file_name = file.filename
 
     # Save the uploaded file
@@ -121,6 +121,7 @@ def upload_file():
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200
+    
 
 
 #def send_to_extracted_text_processing(processed_file_content):
@@ -153,5 +154,9 @@ def send_to_extracted_text_processing(processed_file_content):
         logging.error(f"{TAG} Connection failed: {e}")
 
 
-#if __name__ == '__main__':
+#if __name__ == "__main__":
+#    mp.set_start_method("spawn", force=True)
 #    app.run(host="0.0.0.0", port=5002)
+
+#if __name__ == '__main__':
+#    app.run(host="0.0.0.0", port=5002, threaded=True)

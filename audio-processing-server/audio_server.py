@@ -5,6 +5,8 @@ import socket
 import logging
 import requests
 from audio_processing import process_audio_files
+import multiprocessing as mp
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,6 +19,8 @@ BASE_DIRECTORY = "./"
 AUDIO_DIRECTORY = os.path.join(BASE_DIRECTORY, "Audio/")
 os.makedirs(AUDIO_DIRECTORY, exist_ok=True)
 
+MONITOR_URL = "http://host.docker.internal:5006/status"
+
 app = Flask(__name__)
 
 
@@ -26,9 +30,17 @@ def process_file(**kwargs):
     # Process step 2: Extract text from the file
     logging.info(f"{TAG} Processing audio file...")
     processed_file_content = process_audio_files(file_name)
-    
-    send_to_extracted_text_processing(processed_file_content)
 
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "stop",
+            "service-name": "edgemind-audio-service"
+        }, timeout=2)
+        logging.info(f"Started monitoring: {res.json()}")
+    except Exception as e:
+        logging.warning(f"Monitoring service not available: {e}")
+
+    send_to_extracted_text_processing(processed_file_content)
 
 def save_file(file_name, file):
     """Save the uploaded file to an appropriate directory"""
@@ -53,6 +65,15 @@ def save_file(file_name, file):
 @app.route('/upload_audio', methods=['POST'])
 def upload_file():
     """Handle http POST request from the client and receive a file."""
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "edgemind-audio-service"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
 
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
@@ -92,5 +113,6 @@ def send_to_extracted_text_processing(processed_file_content):
         logging.error(f"{TAG} Connection failed: {e}")
 
 
-#if __name__ == '__main__':
-#    app.run(host="0.0.0.0", port=5003)
+if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)
+    app.run(host="0.0.0.0", port=5003)
