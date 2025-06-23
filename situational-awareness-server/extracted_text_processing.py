@@ -16,6 +16,7 @@ from situational_awareness_faiss import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
 import threading
+import requests
 #from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
@@ -27,6 +28,7 @@ app = Flask(__name__)
 
 HOST = "0.0.0.0"
 TAG = "extracted_text_processing:  "
+MONITOR_URL = "http://host.docker.internal:5006/status"
 
 output_file_path = './Pre_processed_text.txt'
 
@@ -107,6 +109,16 @@ def receive_all(sock):
 
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
+    
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "situational_awareness_server"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
+
     try:
         # Extract data from the HTTP request
         processed_file_contents = request.get_json().get("data", "")

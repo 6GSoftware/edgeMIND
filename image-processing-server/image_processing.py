@@ -12,7 +12,7 @@ processed_images.txt file to prevent processing the same file again.
 
 from PIL import Image
 import os
-from transformers import AutoModelForCausalLM, AutoProcessor
+#from transformers import AutoModelForCausalLM, AutoProcessor
 import logging
 
 logging.basicConfig(level=logging.INFO)

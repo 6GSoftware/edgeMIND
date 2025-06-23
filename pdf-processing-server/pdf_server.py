@@ -18,6 +18,8 @@ BASE_DIRECTORY = "./"
 PDF_DIRECTORY = os.path.join(BASE_DIRECTORY, "pdfs/")
 os.makedirs(PDF_DIRECTORY, exist_ok=True)
 
+MONITOR_URL = "http://host.docker.internal:5006/status"
+
 app = Flask(__name__)
 
 def process_file(**kwargs):
@@ -27,7 +29,18 @@ def process_file(**kwargs):
     logging.info(f"{TAG} Processing PDF file...")
     processed_file_content = process_pdf_files(file_name)
 
-    send_to_extracted_text_processing(processed_file_content)
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "stop",
+            "service-name": "pdf-service"
+        }, timeout=2)
+        logging.info(f"Started monitoring: {res.json()}")
+    except Exception as e:
+        logging.warning(f"Monitoring service not available: {e}")
+
+    logging.info(f"DONE")
+
+    #send_to_extracted_text_processing(processed_file_content)
 
 def save_file(file_name, file):
     """Save the uploaded file to an appropriate directory"""
@@ -52,6 +65,15 @@ def save_file(file_name, file):
 @app.route('/upload_pdf', methods=['POST'])
 def upload_file():
     """Handle http POST request from the client and receive a file."""
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "pdf-service"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
 
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400

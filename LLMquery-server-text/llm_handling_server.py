@@ -36,6 +36,7 @@ torch.random.manual_seed(0)
 
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
 INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_extracted_texts"
+MONITOR_URL = "http://host.docker.internal:5006/status"
 
 model_path = "./saved_LLM_model"
 model = AutoModelForCausalLM.from_pretrained(model_path)
@@ -143,6 +144,16 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
 
 @app.route('/process_query', methods=['POST'])
 def process_query():
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "llm_query_server_text"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
+        
     try:
         user_question = request.json.get('question', '')
         if not user_question:
@@ -184,6 +195,15 @@ def process_query():
         input_post_data = {'data': llm_result}
         input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
         logging.info(f"Received from the input side: {input_response.text}")
+
+        try:
+            res = requests.post(MONITOR_URL, json={
+                "state": "stop",
+                "service-name": "llm_query_server_text"
+            }, timeout=2)
+            logging.info(f"Started monitoring: {res.json()}")
+        except Exception as e:
+            logging.warning(f"Monitoring service not available: {e}")
 
         return jsonify({'status': 'ok', 'message': llm_result})
 
