@@ -6,6 +6,8 @@ services:
       - edgemind_network
     ports:
       - "5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./LLMquery-server-text:/app
 
@@ -16,6 +18,8 @@ services:
       - edgemind_network
     ports:
       - "5001:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./LLMquery-server-audio:/app
 
@@ -39,15 +43,28 @@ services:
       - ./image-processing-server:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    #runtime: nvidia
+    #environment:
+    #  - NVIDIA_VISIBLE_DEVICES=all
      
   audio-service:
     build: ./audio-processing-server
+    container_name: edgemind-audio-service
     networks:
       - edgemind_network
     ports:
       - "5003:5003"
     volumes:
       - ./audio-processing-server:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    #environment:
+    #  - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    #deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - capabilities: [gpu]
 
   pdf-service:
     build: ./pdf-processing-server
@@ -57,14 +74,18 @@ services:
       - "5004:5004"
     volumes:
       - ./pdf-processing-server:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
-      
+            
   situational_awareness_server:
     build:
       context: ./situational-awareness-server
     networks:
       - edgemind_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "6501:6501"
     volumes:

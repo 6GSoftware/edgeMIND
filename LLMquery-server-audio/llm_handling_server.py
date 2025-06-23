@@ -33,6 +33,8 @@ torch.random.manual_seed(0)
 #VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
 
+MONITOR_URL = "http://host.docker.internal:5006/status"
+
 model_path = "./saved_LLM_model"
 
 # Define the prompt template for the assistant
@@ -57,6 +59,27 @@ generation_successful = False
 # Test 3
 pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
 pipe = pipe.to("cpu")
+
+@app.route("/generate-image", methods=["POST"])
+def generate_image():
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "llm_query_server_audio"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
+
+    try:
+        data = request.get_json()
+        user_question = data.get("question")
+
+        if not user_question:
+            return jsonify({"status": "error", "message": "No question provided"}), 400
+        
+        logging.info(f"Received from client: {user_question}")
 
 
 def set_response(stat, msg, stat_code):
@@ -105,7 +128,16 @@ def do_image_generation(**kwargs):
 
             image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
 
-            # Save the generated image inside the container
+            try:
+                res = requests.post(MONITOR_URL, json={
+                    "state": "stop",
+                    "service-name": "llm_query_server_audio"
+                }, timeout=2)
+                logging.info(f"Started monitoring: {res.json()}")
+            except Exception as e:
+                logging.warning(f"Monitoring service not available: {e}")
+
+            # Send the generated image to the mobile app
             if image:
                 generation_successful = True
                 image.save("./output.png")

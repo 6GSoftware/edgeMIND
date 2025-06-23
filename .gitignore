@@ -61,4 +61,9 @@ locustfile.py
 
 # Image files used in testing
 /LLMquery-server-audio/*.png
+
 /image-generation
+
+/2pdf-processing-server
+data.csv
+

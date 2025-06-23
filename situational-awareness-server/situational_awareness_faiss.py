@@ -21,6 +21,8 @@ logging.basicConfig(level=logging.INFO)
 TAG = "situational_awareness_faiss:  "
 VECTOR_DB_URL = "http://vector_db_server:8000/store"
 
+MONITOR_URL = "http://host.docker.internal:5006/status"
+
 file_path = './Pre_processed_text.txt'
 
 # Initialize the embedding model
@@ -67,7 +69,8 @@ def send_new_data_to_database(documents):
     for idx, score in enumerate(best_topic_scores):
         if score > threshold:
             topic_name = initial_topic_names[best_topic_indices[idx]]
-            fitting_chunks.append((chunks[idx], topic_name))
+            #fitting_chunks.append((chunks[idx], topic_name))
+            outliners.append(chunks[idx])
         else:
             outliners.append(chunks[idx])
 
@@ -108,6 +111,15 @@ def send_new_data_to_database(documents):
             "text": chunk_text,
             "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
         })
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "stop",
+            "service-name": "situational_awareness_server"
+        }, timeout=2)
+        logging.info(f"Started monitoring: {res.json()}")
+    except Exception as e:
+        logging.warning(f"Monitoring service not available: {e}")
 
     try:
         response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
