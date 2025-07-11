@@ -25,7 +25,7 @@ else:
 #Load the model
 model = AutoModelForCausalLM.from_pretrained(
     model_source,
-    device_map="cpu",
+    device_map="auto",
     trust_remote_code=True,
     torch_dtype="auto",
     _attn_implementation='eager'

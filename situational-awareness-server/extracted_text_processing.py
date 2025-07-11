@@ -8,6 +8,7 @@ How this module works:
   situational awareness module for topic classification and vectorization.
 """
 
+from datetime import datetime
 import socket
 import nltk
 from sentence_transformers import SentenceTransformer
@@ -122,6 +123,7 @@ def handle_extracted_texts():
     try:
         # Extract data from the HTTP request
         processed_file_contents = request.get_json().get("data", "")
+        logging.info("Processed file contents that were sent: " + processed_file_contents)
 
         if not processed_file_contents:
             logging.info(f"{TAG} No data received.")
@@ -136,6 +138,9 @@ def handle_extracted_texts():
         send_new_data_to_database([
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
         ])
+
+        timestamp = datetime.now().isoformat()
+        logging.info("Latency measurement (pdf, image, audio processing), stop: " + timestamp)
 
         return jsonify({"status": "success", "message": "Data processed"})
 

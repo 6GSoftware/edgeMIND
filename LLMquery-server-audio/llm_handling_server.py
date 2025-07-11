@@ -60,6 +60,9 @@ generation_successful = False
 pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
 pipe = pipe.to("cpu")
 
+# pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float16)
+# pipe = pipe.to("cuda")
+
 def set_response(stat, msg, stat_code):
     global status
     global message
@@ -115,9 +118,9 @@ def do_image_generation(**kwargs):
         logging.error('Error in image generation: ', str(e))
         set_response('error', 'Image generation failed, please try again', 500)
 
-
 @app.route("/generate-image", methods=["POST"])
 def generate_image():
+
     try:
         res = requests.post(MONITOR_URL, json={
             "state": "start",
@@ -228,3 +231,7 @@ def poll_image():
     except Exception as e:
         logging.error('Error in polling the image: ', str(e))
         return jsonify({'status': 'error', 'message': 'Request failed, please try again'}), 500
+    
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5001, threaded=True)

@@ -10,6 +10,12 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./LLMquery-server-text:/app
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+    # runtime: nvidia
 
   llm_query_server_audio:
     build: 
@@ -22,6 +28,13 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./LLMquery-server-audio:/app
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+    # environment:
+    #   - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
   vector_db_server:
     build: 
@@ -43,9 +56,9 @@ services:
       - ./image-processing-server:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    #runtime: nvidia
-    #environment:
-    #  - NVIDIA_VISIBLE_DEVICES=all
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
      
   audio-service:
     build: ./audio-processing-server
@@ -58,13 +71,15 @@ services:
       - ./audio-processing-server:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    #environment:
-    #  - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-    #deploy:
-    #  resources:
-    #    reservations:
-    #      devices:
-    #        - capabilities: [gpu]
+    # environment:
+    #   - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+    # runtime: nvidia 
 
   pdf-service:
     build: ./pdf-processing-server

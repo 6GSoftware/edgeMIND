@@ -15,6 +15,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import requests
 import logging
+import math
 
 logging.basicConfig(level=logging.INFO)
 
@@ -29,6 +30,57 @@ file_path = './Pre_processed_text.txt'
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
 
+#NOTE: For RAG only tests!!!
+'''
+def send_new_data_to_database(documents):
+    """
+    Check if the new data matches any existing topics. If not, create new topics for those chunks.
+    Finally, forward the processed data to the vector database.
+    """
+    
+    # Split the new data into chunks
+    chunks = get_chunks(documents)
+
+    # Prepare metadata to send to the vector database
+    metadata = []
+    timestamp = datetime.now().isoformat()
+
+    # Generate embeddings and collect metadata for each chunk
+    embeddings = []
+    for chunk in chunks:
+        # Generate embedding for each chunk
+        embedding = embedding_function.encode([chunk]).astype('float16')[0]
+
+        # Collect embeddings and metadata
+        embeddings.append(embedding)  # Store the embedding for FAISS
+
+        # Store the metadata with the topic name
+        metadata.append({
+            "timestamp": timestamp,
+            #"topic": None,  # Store the topic name here
+            "text": chunk,
+            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
+        })
+
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "stop",
+            "service-name": "situational_awareness_server"
+        }, timeout=2)
+        logging.info(f"Started monitoring: {res.json()}")
+    except Exception as e:
+        logging.warning(f"Monitoring service not available: {e}")
+
+    try:
+        response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
+        response.raise_for_status()
+        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
+    except requests.RequestException as e:
+        logging.info(f"{TAG} Failed to send data: {e}")
+'''
+
+
+# NOTE: For RAG + topic modeling tests
 def send_new_data_to_database(documents):
     """
     Check if the new data matches any existing topics. If not, create new topics for those chunks.
@@ -38,47 +90,53 @@ def send_new_data_to_database(documents):
     # Split the new data into chunks
     chunks = get_chunks(documents)
 
-    # Transform new chunks to a document-term matrix with the initial vectorizer
-    X = initial_vectorizer.transform(chunks)
-
-    topic_word = initial_model.topic_word_
-
-    # Calculate the propability of a topic suiting a chunk
-    topic_scores_matrix = X @ topic_word.T
-
-    # Add a tiny epsilon to avoid division by zero if any row is all zeros
-    epsilon = 1e-12
-
-    row_sums = topic_scores_matrix.sum(axis=1) + epsilon
-    topic_probs_matrix = topic_scores_matrix / row_sums[:, np.newaxis]
-    #logging.info(f"{TAG} the topic_probs_matrix is: {np.matrix(topic_probs_matrix)}\n")
-
     fitting_chunks = []
     outliners = []
 
-    # Calculate which are the topics that suit best for each chunk
-    best_topic_indices = topic_probs_matrix.argmax(axis=1)  # Best topic per chunk <- index of the topic
-    #logging.info(f"{TAG} the best topic indices: {best_topic_indices}")
-    # Get the score of the best fitting topic per chunk
-    best_topic_scores = topic_probs_matrix.max(axis=1)      # Best topic score per chunk <- best score
-    #logging.info(f"{TAG} the best topic scores per chunk: {best_topic_scores}")
 
-    threshold = 0.5
+    try:
+        # Transform new chunks to a document-term matrix with the initial vectorizer
+        X = initial_vectorizer.transform(chunks)
 
-    # Determine which chunks should be assigned an existing topic and which ones should be generated a new topic
-    for idx, score in enumerate(best_topic_scores):
-        if score > threshold:
-            topic_name = initial_topic_names[best_topic_indices[idx]]
-            #fitting_chunks.append((chunks[idx], topic_name))
-            outliners.append(chunks[idx])
-        else:
-            outliners.append(chunks[idx])
+        topic_word = initial_model.topic_word_
 
+        # Calculate the propability of a topic suiting a chunk
+        topic_scores_matrix = X @ topic_word.T
+
+        # Add a tiny epsilon to avoid division by zero if any row is all zeros
+        epsilon = 1e-12
+
+        row_sums = topic_scores_matrix.sum(axis=1) + epsilon
+        topic_probs_matrix = topic_scores_matrix / row_sums[:, np.newaxis]
+        #logging.info(f"{TAG} the topic_probs_matrix is: {np.matrix(topic_probs_matrix)}\n")
+
+
+
+        # Calculate which are the topics that suit best for each chunk
+        best_topic_indices = topic_probs_matrix.argmax(axis=1)  # Best topic per chunk <- index of the topic
+        #logging.info(f"{TAG} the best topic indices: {best_topic_indices}")
+        # Get the score of the best fitting topic per chunk
+        best_topic_scores = topic_probs_matrix.max(axis=1)      # Best topic score per chunk <- best score
+        #logging.info(f"{TAG} the best topic scores per chunk: {best_topic_scores}")
+
+        threshold = 0.5
+
+        # Determine which chunks should be assigned an existing topic and which ones should be generated a new topic
+        for idx, score in enumerate(best_topic_scores):
+            if score > threshold:
+                topic_name = initial_topic_names[best_topic_indices[idx]]
+                #fitting_chunks.append((chunks[idx], topic_name))
+                outliners.append(chunks[idx])
+            else:
+                outliners.append(chunks[idx])
+    except:
+        for chunk in chunks:
+            outliners.append(chunk)
 
 
     if outliners:
         # Vectorizer for outliers
-        new_vectorizer, new_model, new_topic_names = vectorize(outliners, 1)
+        new_vectorizer, new_model, new_topic_names = vectorize(outliners, math.ceil(len(chunks)/30))
 
         doc_topic = new_model.doc_topic_
 
@@ -185,6 +243,6 @@ def init_model():
     with open(file_path, 'r') as file:
         documents = file.readlines()
     chunks = get_chunks(documents)
-    return vectorize(chunks, 50)
+    return vectorize(chunks, math.ceil(len(chunks)/30))
 
 initial_vectorizer, initial_model, initial_topic_names = init_model()

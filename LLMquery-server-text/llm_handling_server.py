@@ -12,16 +12,15 @@ This module is the edgeMIND user query processing server. This module:
 #from dotenv import load_dotenv
 import json
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, LlamaTokenizer, LlamaForCausalLM
 from langchain.prompts import PromptTemplate
 from datetime import datetime
 import socket
 import re
 import requests
-import threading
 from flask import Flask, request, jsonify
 import logging
-#import os
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,9 +37,24 @@ VECTOR_DB_URL = "http://vector_db_server:8000/search"
 INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_extracted_texts"
 MONITOR_URL = "http://host.docker.internal:5006/status"
 
+
+
 model_path = "./saved_LLM_model"
+
+
+# NOTE: this code from here and below are for running with Phi3
+# CPU
 model = AutoModelForCausalLM.from_pretrained(model_path)
+
+# GPU
+# model = AutoModelForCausalLM.from_pretrained(
+#     model_path,
+#     torch_dtype=torch.float16,
+#     device_map="auto"
+# )
+
 tokenizer = AutoTokenizer.from_pretrained(model_path)
+
 pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
 generation_args = {
     "max_new_tokens": 500,
@@ -48,6 +62,41 @@ generation_args = {
     "temperature": 0.5,
     "do_sample": True,
 }
+
+
+# NOTE: this code from here and below are for running with MobileLLaMA
+# model_path = "mtgv/MobileLLaMA-1.4B-Chat"  # Or another path if you have it locally
+# tokenizer = LlamaTokenizer.from_pretrained(model_path)
+# model = LlamaForCausalLM.from_pretrained(
+#     model_path,
+#     torch_dtype=torch.float32,
+#     device_map="auto"
+# )
+
+
+#model = AutoModelForCausalLM.from_pretrained(model_path)
+#tokenizer = AutoTokenizer.from_pretrained(model_path)
+#pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+#generation_args = {
+#    "max_new_tokens": 500,
+#    "return_full_text": False,
+#    "temperature": 0.5,
+#    "do_sample": True,
+#}
+
+# CPU
+# model = AutoModelForCausalLM.from_pretrained(
+#     model_path,
+#     device_map={"": "cpu"},
+#     torch_dtype=torch.float32
+# )
+
+# GPU
+# model = AutoModelForCausalLM.from_pretrained(
+#     model_path,
+#     device_map="auto",  # Automatically assigns layers to available GPU(s)
+#     torch_dtype=torch.float16  # FP16 reduces memory use, speeds up generation
+# )
 
 # Define the prompt template for the assistant
 prompt_template = """
@@ -77,6 +126,23 @@ Question: {question}
  
 <|assistant|>
 """
+
+
+
+# prompt_template = """
+# [INST]
+# You are a helpful assistant. Use the provided context to answer the user's question.
+
+# Context:
+# {context}
+
+# Question:
+# {question}
+
+# If the answer is not in the context, say "I don't know." Do not make anything up.
+# Always answer in the same language as the question.
+# [/INST]
+# """
  
 # Initialize the prompt with template
 PROMPT = PromptTemplate(
@@ -106,14 +172,108 @@ def filter_generated_text(generated_text, retrieved_texts):
 
     # Remove timestamps (e.g., "Timestamp 20241016T095658.722410")
     filtered_text = re.sub(r"Timestamp\s+\d{8}T\d{6}\.\d+", "", filtered_text)
+    filtered_text = re.sub(r'\s*timestamp\s+\d{8}T\d{6}\.\d+$', '', filtered_text).strip()
 
     # Remove repetitive "Topic text" sections if they occur multiple times
     filtered_text = re.sub(r"Topic text.*?(?=\bTimestamp|\n|$)", "", filtered_text)
+
+    # Remove leading 'Context text [....]'
+    filtered_text = re.sub(r'.*?Context text\s*\[.*?\]\s*', '', filtered_text, flags=re.DOTALL).strip()
 
     # Remove any extra spaces introduced by the cleanup
     filtered_text = re.sub(r"\s+", " ", filtered_text).strip()
 
     return filtered_text
+
+
+'''
+def send_results_to_situational_awareness_layer(**kwargs):
+    llm_result = kwargs.get('llm_result')
+    headers = kwargs.get('headers')
+    
+    # Send result to input processing layer
+    input_post_data = {'data': llm_result}
+    input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
+    logging.info(f"Received from the input side: {input_response.text}")
+'''
+
+
+def query_llama2(question, context):
+    try:
+        message = PROMPT.format(context=context, question=question)
+
+        response = requests.post(
+            "http://host.docker.internal:11434/api/chat",
+            json={
+                # "model": "llama2:7b",
+                # "model": "llama2:13b",
+                 "model": "gemma:2b",
+                "messages": [
+                    {"role": "user", "content": message}
+                ],
+                "stream": False,
+                "temperature": 0.5
+            }
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+        if "message" not in data or "content" not in data["message"]:
+            logging.error("Unexpected response format from Ollama: %s", data)
+            return "Error: Unexpected response format from model."
+
+        generated_text = data["message"]["content"]
+        logging.info("Generated response before cleanup: %s", generated_text)
+
+        final_text = filter_generated_text(generated_text, context)
+        logging.info("Final generated response: %s", final_text)
+
+        return final_text
+
+    except requests.exceptions.RequestException as e:
+        logging.error("Request to Ollama failed: %s", e)
+        return "Error: Could not contact language model."
+
+    except Exception as e:
+        logging.error("Unexpected error: %s", e)
+        return "Error: Unexpected issue during response generation."
+    
+
+
+
+
+
+def query_llm_MobileLLaMA(context, question):
+    if not context or not question:
+        return ""
+
+    message = PROMPT.format(context=context, question=question)
+    inputs = tokenizer(message, return_tensors="pt").to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=500,
+        temperature=0.5,
+        do_sample=True
+    )
+
+    generated_tokens = outputs[0][inputs['input_ids'].shape[-1]:]
+    generated_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
+    final_generated_text = filter_generated_text(generated_text, context)
+    logging.info(f"Final generated response: {final_generated_text}")
+
+    return final_generated_text
+
+
+
+
+
+
+
+
+
 
 
 def query_llm(generation_args, pipe, db_query_result, user_question):
@@ -140,6 +300,42 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
     logging.info(f"Final generated response: {final_generated_text}")
 
     return final_generated_text
+
+
+
+
+
+def query_llm_mistral(context, question):
+    if not context or not question:
+        return ""
+
+    message = PROMPT.format(context=context, question=question)
+
+    inputs = tokenizer(message, return_tensors="pt").to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=500,  
+        temperature=0.5, 
+        do_sample=True,    
+        eos_token_id=tokenizer.eos_token_id,
+        pad_token_id=tokenizer.pad_token_id,
+    )
+
+    # Remove prompt tokens from output to get only generated text
+    generated_tokens = outputs[0][inputs['input_ids'].shape[-1]:]
+
+    # Decode tokens to string
+    generated_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
+    # Clean up the output by removing context, timestamps, etc.
+    final_generated_text = filter_generated_text(generated_text, context)
+    logging.info(f"Final generated response: {final_generated_text}")
+
+    return final_generated_text
+
+
+
 
 
 @app.route('/process_query', methods=['POST'])
@@ -183,18 +379,23 @@ def process_query():
 
         db_result = response_as_json['message']
 
+        logging.info("\ndb result string: " + str(db_result))
+
         # Query the llm
-        llm_result = query_llm(generation_args, pipe, db_result, user_question)
-        #llm_result = f"The result from the database: {result}"
+        llm_result = query_llm(generation_args, pipe, str(db_result), user_question)       # NOTE: For testing with Phi3 model
+        #llm_result = query_llm_MobileLLaMA(str(db_result), user_question)
+        # llm_result = query_llama2(user_question, str(db_result))     # NOTE: For testing with llama model
+        #llm_result = query_llm_mistral(str(db_result), user_question)
+
 
         if llm_result == "":
             exception_message = "I couldn't find relevant information for your query. Could you provide more details?"
             return jsonify({'status': 'ok', 'message': exception_message})
         
         # Send result to input processing layer
-        input_post_data = {'data': llm_result}
-        input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
-        logging.info(f"Received from the input side: {input_response.text}")
+        # input_post_data = {'data': llm_result}
+        # input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
+        # logging.info(f"Received from the input side: {input_response.text}")
 
         try:
             res = requests.post(MONITOR_URL, json={
@@ -210,8 +411,6 @@ def process_query():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
-#if __name__ == '__main__':
-#    socket_thread = threading.Thread(target=start_server, daemon=True)
-#    socket_thread.start()
-#    app.run(host='0.0.0.0', port=6000)
+    
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, threaded=True)

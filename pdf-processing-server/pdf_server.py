@@ -22,8 +22,7 @@ MONITOR_URL = "http://host.docker.internal:5006/status"
 
 app = Flask(__name__)
 
-def process_file(**kwargs):
-    file_name = kwargs.get('file_name')
+def process_file(file_name):
 
     # Extract text from the file and save the exracted text to appropriate file.
     logging.info(f"{TAG} Processing PDF file...")
@@ -86,9 +85,7 @@ def upload_file():
     response_message = save_file(file_name, file)
 
     # Process the file in another thread
-    thread = threading.Thread(target=process_file, kwargs={
-                    'file_name': file_name})
-    thread.start()
+    process_file(file_name)
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200
@@ -111,5 +108,5 @@ def send_to_extracted_text_processing(processed_file_content):
         logging.error(f"{TAG} Connection failed: {e}")
 
 
-#if __name__ == '__main__':
-#    app.run(host="0.0.0.0", port=5004)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5004, threaded=True)

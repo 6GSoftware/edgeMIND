@@ -24,9 +24,8 @@ TAG = "audio_processing:  "
 audio_folder = './Audio'
 
 # Step 1: Initialize Whisper model for transcription
-model_whisper = whisper.load_model("base")
-#model_whisper = whisper.load_model("tiny", device="cuda") # gpu
-
+# model_whisper = whisper.load_model("base", device="cuda")
+model_whisper = whisper.load_model("base", device="cpu") 
 (f"{TAG} Whisper model loaded successfully.")
 
 def transcribe_audio_files(audio_folder, new_file):

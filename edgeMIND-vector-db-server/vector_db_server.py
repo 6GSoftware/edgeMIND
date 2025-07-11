@@ -35,7 +35,7 @@ def load_faiss_index(index_file_path):
     return faiss.read_index(index_file_path)
 
 
-def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
+def search_faiss_index(query_text, index, metadata, embedding_function, k=5):
     """Search FAISS index for the closest topic."""
 
     # Do the actual search to the faiss index
@@ -69,7 +69,8 @@ def store_data():
             for entry in metadata:
                 f.write(json.dumps(entry) + '\n')
 
-        if os.path.exists(index_file_path):
+        # Safely load index or create a new one if file is missing or empty
+        if os.path.exists(index_file_path) and os.path.getsize(index_file_path) > 0:
             index = load_faiss_index(index_file_path)
         else:
             dimension = embeddings[0].shape[0]
@@ -79,14 +80,15 @@ def store_data():
         faiss.write_index(index, index_file_path)
         logging.info("Wrote new data to faiss index!")
 
-
         msg = "Data stored successfully."
         logging.info(msg)
         return jsonify({"status": "success", "message": msg})
 
     except Exception as e:
+        logging.error("Error in /store endpoint", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
-    
+
+
 
 @app.route('/search', methods=['POST'])
 def search_database():
@@ -112,6 +114,7 @@ def search_database():
         result_as_json = json.dumps(str(results))
         #result_as_json = json.dumps(result_string)
 
+        #return jsonify({"status": "success", "message": results})
         return jsonify({"status": "success", "message": result_as_json})
 
     except Exception as e:

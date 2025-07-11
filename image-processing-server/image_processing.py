@@ -35,7 +35,8 @@ combined_text_file = './emultimodal_extracted_data.txt'
 def process_image_files(new_file):
 
     # Process each image individually
-    if new_file.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
+    if new_file.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):
+
         file_path = os.path.join(image_folder, new_file)
 
         # Open the image

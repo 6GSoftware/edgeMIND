@@ -24,8 +24,7 @@ MONITOR_URL = "http://host.docker.internal:5006/status"
 app = Flask(__name__)
 
 
-def process_file(**kwargs):
-    file_name = kwargs.get('file_name')
+def process_file(file_name):
 
     # Process step 2: Extract text from the file
     logging.info(f"{TAG} Processing audio file...")
@@ -87,10 +86,9 @@ def upload_file():
     # Save the uploaded file
     response_message = save_file(file_name, file)
 
+    logging.info("Starting audio file processing...")
     # Process the file in another thread
-    thread = threading.Thread(target=process_file, kwargs={
-                    'file_name': file_name})
-    thread.start()
+    process_file(file_name)
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200
@@ -114,5 +112,4 @@ def send_to_extracted_text_processing(processed_file_content):
 
 
 if __name__ == "__main__":
-    mp.set_start_method("spawn", force=True)
-    app.run(host="0.0.0.0", port=5003)
+    app.run(host="0.0.0.0", port=5003, threaded=True)

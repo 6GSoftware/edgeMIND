@@ -58,6 +58,13 @@ workflow_documentation.md
 requirements_test.txt
 locustfile.py
 *.csv
+create_new_database_files.py
+Pre_processed_text_old.txt
+multimodal_faiss_index_RAGSA.index
+topic_metadata_with_names_RAGSA.txt
+/anskun filut
+/ä
+/LLMquery-server-text/models
 
 # Image files used in testing
 /LLMquery-server-audio/*.png

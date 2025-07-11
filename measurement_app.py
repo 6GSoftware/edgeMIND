@@ -30,16 +30,22 @@ def monitor_stats():
         print("")
 
         try:
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            cpu_percent = psutil.cpu_percent(interval=0.5)
             virtual_mem = psutil.virtual_memory()
             cpu_freq = psutil.cpu_freq()
             cpu_clock_ghz = cpu_freq.current / 1000
+
             mem_used = virtual_mem.used
             mem_total = virtual_mem.total
             mem_percent = virtual_mem.percent
 
-            mem_used_mb = round(psutil.virtual_memory().used / (1024 ** 2), 1)
-            mem_total_mb = round(psutil.virtual_memory().total / (1024 ** 2), 1)
+            swap = psutil.swap_memory()
+            swap_used = swap.used
+
+            mem_used_mb = round(mem_used / (1024 ** 2), 1)
+            mem_total_mb = round(mem_total / (1024 ** 2), 1)
+            swap_used_mb = round(swap_used / (1024 ** 2), 1)
+            ram_swap_used_mb = round((mem_used + swap_used) / (1024 ** 2), 1)
 
             print(f"CPU % (System):   {cpu_percent:.2f}%")
             print(f"Memory (System): {format_bytes(mem_used)} / {format_bytes(mem_total)} ({mem_percent:.2f}%)")
@@ -77,43 +83,37 @@ def monitor_stats():
                     writer = csv.writer(f)
                     if not file_exists:
                         writer.writerow([
-                            "Timestamp",
-                            "Executing service",
-                            #"Running services",
-                            "CPU %", "CPU Clock (GHz)",
-                            "RAM Used (MB)", "RAM Total (MB)", "RAM %",
-                            "GPU Load %", "GPU Temp °C",
-                            "CPU Temp °C",
-                            "SSD Temp °C",
-                            "Motherboard Temp °C",
+                        "Timestamp",
+                        "Executing service",
+                        "CPU %", "CPU Clock (GHz)",
+                        "RAM Used (MB)", "RAM Total (MB)", "RAM %",
+                        "Swap Used (MB)", "RAM + Swap Used (MB)",
+                        "GPU Load %", "GPU Temp °C",
+                        "CPU Temp °C",
                         ])
                     writer.writerow([
                         timestamp,
                         executing_service,
-                        #", ".join(container_names),
                         f"{cpu_percent:.1f}", 
                         f"{cpu_clock_ghz:.1f}",
                         f"{mem_used_mb:.0f}",
                         f"{mem_total_mb:.0f}",
                         f"{mem_percent:.1f}",
+                        f"{swap_used_mb:.0f}",
+                        f"{ram_swap_used_mb:.0f}",
                         f"{gpu_load:.1f}" if gpu_load is not None else "N/A",
                         f"{gpu_temp:.1f}" if gpu_temp is not None else "N/A",
                         f"{temperatures['cpu_temp']:.1f}" if temperatures["cpu_temp"] is not None else "N/A",
-                        f"{temperatures['ssd_temp']:.1f}" if temperatures["ssd_temp"] is not None else "N/A",
-                        f"{temperatures['mobo_temp']:.1f}" if temperatures["mobo_temp"] is not None else "N/A"
                     ])
 
         except Exception as e:
             print(f"Error: {e}")
-
-        time.sleep(0.5) 
             
 
 def get_temperatures():
     temps = psutil.sensors_temperatures()
     cpu_temp = None
-    ssd_temp = None
-    mobo_temp = None
+
 
     for chip, entries in temps.items():
         for entry in entries:
@@ -123,14 +123,6 @@ def get_temperatures():
             if chip.lower() == "k10temp" and entry.label and entry.label.strip().lower() == "tctl":
                 cpu_temp = entry.current
 
-            # SSD temp
-            if not ssd_temp and chip.lower().startswith("nvme") and "composite" in label.lower():
-                ssd_temp = entry.current
-
-            # Motherboard temp
-            if not mobo_temp:
-                if label == "SYSTIN":
-                    mobo_temp = entry.current
 
     if cpu_temp is None:
         coretemps = []
@@ -144,8 +136,6 @@ def get_temperatures():
 
     return {
         "cpu_temp": cpu_temp,
-        "ssd_temp": ssd_temp,
-        "mobo_temp": mobo_temp
     }
 
 

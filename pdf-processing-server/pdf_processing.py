@@ -30,17 +30,17 @@ if LLAMAPARSE_API_KEY is None:
     raise IOError("API key missing")
 
 
-# Set up LlamaParse with the API key and desired output format
-parser = LlamaParse(
-    api_key=LLAMAPARSE_API_KEY,  
-    result_type="markdown"
-)
-
 # Function to process the new pdf file
 def process_pdfs_with_llamaparse(new_file):
     """Use LlamaParse to extract text from PDF files, skipping already processed files."""
     texts = []
     newly_processed_files = []
+
+    # Set up LlamaParse with the API key and desired output format
+    parser = LlamaParse(
+        api_key=LLAMAPARSE_API_KEY,  
+        result_type="markdown"
+    )
 
     if new_file.endswith(".pdf"):
         pdf_path = os.path.join(pdf_folder, new_file)

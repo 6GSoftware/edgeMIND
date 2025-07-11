@@ -6,6 +6,7 @@ import time
 import logging
 import requests
 import multiprocessing as mp
+import torch.multiprocessing as mp
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,8 +27,10 @@ os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 app = Flask(__name__)
 
 
-def process_file(**kwargs):
-    file_name = kwargs.get('file_name')
+#def process_file(**kwargs):
+def process_file(file_name):
+
+    #file_name = kwargs.get('file_name')
 
     # Extract text from the file and save the exracted text to appropriate file.
     logging.info(f"{TAG} Processing image file...")
@@ -113,14 +116,18 @@ def upload_file():
 
     # Save the uploaded file
     response_message = save_file(file_name, file)
+    logging.info("file saved: " + response_message)
 
-    # Process the file in another thread
-    thread = threading.Thread(target=process_file, kwargs={
-                    'file_name': file_name})
-    thread.start()
+    ## Process the file in another thread
+    #thread = threading.Thread(target=process_file, kwargs={
+    #                'file_name': file_name})
+    #thread.start()
+
+    process_file(file_name)
+    return {'message': 'Processing complete'}, 200
 
     # Send a response message to the mobile app
-    return {'message': response_message}, 200
+    #return {'message': response_message}, 200
     
 
 
@@ -154,9 +161,6 @@ def send_to_extracted_text_processing(processed_file_content):
         logging.error(f"{TAG} Connection failed: {e}")
 
 
-#if __name__ == "__main__":
-#    mp.set_start_method("spawn", force=True)
-#    app.run(host="0.0.0.0", port=5002)
-
-#if __name__ == '__main__':
-#    app.run(host="0.0.0.0", port=5002, threaded=True)
+if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)
+    app.run(host="0.0.0.0", port=5002, threaded=True)

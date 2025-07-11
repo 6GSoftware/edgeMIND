@@ -13,7 +13,7 @@ RUN pip install --default-timeout=300 \
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+#COPY . .
 
-#CMD ["python", "image_server.py"]
-CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5002", "image_server:app"]
+CMD ["python", "image_server.py"]
+#CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5002", "image_server:app"]
