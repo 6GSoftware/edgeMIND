@@ -10,8 +10,10 @@ RUN apt-get update && apt-get install -y git ffmpeg && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY . .
+#RUN chmod +x start.sh
 
 #ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 #CMD ["python", "audio_server.py"]
-CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5003", "audio_server:app"]
+#CMD ["gunicorn", "--preload", "-w", "1", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5003", "audio_server:app"]
+CMD ["sh", "./start.sh"]

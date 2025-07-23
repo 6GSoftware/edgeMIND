@@ -8,6 +8,7 @@ file is transcribed with the whisper model. After that the transcription is save
 and the name of the file is saved in the processed_files.txt file to prevent processing the same file again.
 """
 
+from concurrent.futures import ProcessPoolExecutor
 import os
 import whisper  # Whisper model for audio transcription
 import logging
@@ -24,14 +25,25 @@ TAG = "audio_processing:  "
 audio_folder = './Audio'
 
 # Step 1: Initialize Whisper model for transcription
-model_whisper = whisper.load_model("base")
+#model_whisper = whisper.load_model("base")
 #model_whisper = whisper.load_model("tiny", device="cuda") # gpu
+#(f"{TAG} Whisper model loaded successfully.")
 
-(f"{TAG} Whisper model loaded successfully.")
+model_whisper = None
 
-def transcribe_audio_files(audio_folder, new_file):
+
+def init_model():
+    global model_whisper
+    model_whisper = whisper.load_model("base")
+    #model_whisper = whisper.load_model("tiny", device="cuda") # gpu
+    (f"{TAG} Whisper model loaded successfully.")
+
+
+def transcribe_audio_files(new_file):
     """Load and process audio files, returning the transcriptions."""
     
+    global model_whisper
+
     texts = []
 
     # Step 3: Transcribe audio files and append transcriptions to texts
@@ -54,6 +66,7 @@ def transcribe_audio_files(audio_folder, new_file):
     return texts
 
 
+'''
 def process_audio_files(new_file):
     # Process audio files and avoid reprocessing already transcribed files
     transcriptions = transcribe_audio_files(audio_folder, new_file)
@@ -62,12 +75,23 @@ def process_audio_files(new_file):
         logging.info(f"{TAG} No new transcriptions were generated.")
 
     return transcriptions
+'''
+
+executor = ProcessPoolExecutor(max_workers=1, initializer=init_model)
 
 def process_audio_files(new_file):
     """Process audio files and return transcriptions as a formatted string"""
 
-    # Step 1: Process audio files
-    transcriptions = transcribe_audio_files(audio_folder, new_file)
+    future = executor.submit(transcribe_audio_files, new_file)
+    transcriptions = None
+    # Process audio files
+    #init_model()
+    #transcriptions = transcribe_audio_files(new_file)
+    try:
+        transcriptions = future.result()
+    except Exception as e:
+        logging.info("An error occurred in transcribing the audio file:\n" + str(e))
+        return ""   # Return empty string if nothing was processed
 
     if not transcriptions:
         logging.info(f"{TAG} No new transcriptions were generated.")

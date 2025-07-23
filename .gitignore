@@ -33,6 +33,7 @@ Pictures
 # The LLM model files
 **/saved_LLM_model/
 /Input-side-server/Phi-3.5-vision/
+/LLMquery-server-text/models
 
 # From Input-side-server 
 /Input-side-server/__pycache__
@@ -56,9 +57,12 @@ workflow_documentation.md
 /Input-side-server
 /testing
 requirements_test.txt
+/2pdf-processing-server
+*.csv
+anskun filut
+ä
+data_files_for_reset
+locustfile.py
 
 # Image files used in testing
 /LLMquery-server-audio/*.png
-
-/2pdf-processing-server
-data.csv
