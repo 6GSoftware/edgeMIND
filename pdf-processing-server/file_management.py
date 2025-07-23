@@ -4,7 +4,7 @@ import signal
 import sys
 import time
 
-PDF_DIR = "./Pictures"
+PDF_DIR = "./pdfs"
 
 DAYS_OLD = 1    #TODO: put here 10, after testing and debugging
 SLEEP_INTERVAL = 86400
