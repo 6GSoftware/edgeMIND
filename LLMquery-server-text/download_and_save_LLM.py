@@ -15,5 +15,14 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
 
-model.save_pretrained("./saved_LLM_model")
-tokenizer.save_pretrained("./saved_LLM_model")
+model.save_pretrained(
+    "./saved_LLM_model", 
+    max_shard_size="500MB", 
+    safe_serialization=True
+)
+
+tokenizer.save_pretrained(
+    "./saved_LLM_model", 
+    max_shard_size="500MB", 
+    safe_serialization=True
+)

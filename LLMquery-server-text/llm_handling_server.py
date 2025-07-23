@@ -192,9 +192,9 @@ def process_query():
             return jsonify({'status': 'ok', 'message': exception_message})
         
         # Send result to input processing layer
-        input_post_data = {'data': llm_result}
-        input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
-        logging.info(f"Received from the input side: {input_response.text}")
+        #input_post_data = {'data': llm_result}
+        #input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
+        #logging.info(f"Received from the input side: {input_response.text}")
 
         try:
             res = requests.post(MONITOR_URL, json={
