@@ -3,12 +3,13 @@ import time
 from flask import Flask, request
 import logging
 import threading
-import GPUtil
+#import GPUtil
 import psutil
 import csv
 import os
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 
 CSV_FILE = "data.csv"
 
@@ -20,6 +21,7 @@ stop_event = threading.Event()
 save_measurements = True
 
 executing_service = ""
+service_PID = -1
 
 def monitor_stats():
     client = docker.from_env()
@@ -49,7 +51,7 @@ def monitor_stats():
             print(f"Memory (System): {format_bytes(mem_used)} / {format_bytes(mem_total)} ({mem_percent:.2f}%)")
 
             # GPU
-            gpus = GPUtil.getGPUs()
+            '''gpus = GPUtil.getGPUs()
             if gpus:
                 gpu = gpus[0]
                 gpu_info_lines = []
@@ -64,13 +66,13 @@ def monitor_stats():
                 gpu_info_lines = ["GPU: No GPU detected"]
 
             for gpu_line in gpu_info_lines:
-                print(f"{'GPU:':15}{gpu_line}")
+                print(f"{'GPU:':15}{gpu_line}")'''
 
             if save_measurements:
                 timestamp = datetime.now().isoformat(timespec='seconds').replace('T', ' ')
 
-                gpu_load = gpu.load * 100 if gpus else None
-                gpu_temp = gpu.temperature if gpus else None
+                #gpu_load = gpu.load * 100 if gpus else None
+                #gpu_temp = gpu.temperature if gpus else None
 
                 temperatures = get_temperatures()
 
@@ -82,17 +84,19 @@ def monitor_stats():
                     if not file_exists:
                         writer.writerow([
                             "Timestamp",
+                            "PID",
                             "Executing service",
                             #"Running services",
                             "CPU %", "CPU Clock (GHz)",
                             "RAM Used", "RAM Total", "RAM %",
-                            "GPU Load %", "GPU Temp °C",
+                            #"GPU Load %", "GPU Temp °C",
                             "CPU Temp °C",
                             "SSD Temp °C",
                             "Motherboard Temp °C",
                         ])
                     writer.writerow([
                         timestamp,
+                        service_PID,
                         executing_service,
                         #", ".join(container_names),
                         f"{cpu_percent:.1f}", 
@@ -100,8 +104,8 @@ def monitor_stats():
                         f"{mem_used_gb:.1f}",
                         f"{mem_total_gb:.1f}",
                         f"{mem_percent:.1f}",
-                        f"{gpu_load:.1f}" if gpu_load is not None else "N/A",
-                        f"{gpu_temp:.1f}" if gpu_temp is not None else "N/A",
+                        #f"{gpu_load:.1f}" if gpu_load is not None else "N/A",
+                        #f"{gpu_temp:.1f}" if gpu_temp is not None else "N/A",
                         f"{temperatures['cpu_temp']:.1f}" if temperatures["cpu_temp"] is not None else "N/A",
                         f"{temperatures['ssd_temp']:.1f}" if temperatures["ssd_temp"] is not None else "N/A",
                         f"{temperatures['mobo_temp']:.1f}" if temperatures["mobo_temp"] is not None else "N/A"
@@ -167,6 +171,8 @@ def format_bytes(size, binary=True):
 @app.route('/status', methods=['POST'])
 def toggle_recording():
     global executing_service
+    global service_PID
+
     data = request.get_json()
     state = data.get("state")
 
@@ -174,10 +180,12 @@ def toggle_recording():
         print(data.get("service-name"))
         print(data.get("service-name"))
         executing_service = data.get("service-name")
+        service_PID = random.randint(0, 50)
         return {"status": "OK"}, 200
 
     elif state == "stop":
         executing_service = ""
+        service_PID = -1
         return {"status": "OK"}, 200
 
     return {"error": "Invalid state"}, 400
