@@ -9,6 +9,7 @@ How this module works:
 """
 
 import socket
+import time
 import nltk
 from sentence_transformers import SentenceTransformer
 import re
@@ -136,6 +137,9 @@ def handle_extracted_texts():
         send_new_data_to_database([
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
         ])
+
+        end_time = time.time()
+        logging.info("\nEND TIME: " + str(end_time) + "\n")
 
         return jsonify({"status": "success", "message": "Data processed"})
 

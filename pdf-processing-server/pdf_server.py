@@ -1,3 +1,4 @@
+import time
 from flask import Flask, request
 import os
 import threading
@@ -66,6 +67,9 @@ def save_file(file_name, file):
 @app.route('/upload_pdf', methods=['POST'])
 def upload_file():
     """Handle http POST request from the client and receive a file."""
+
+    start_time = time.time()
+    logging.info("\nSTART TIME: " + str(start_time) + "\n")
 
     try:
         res = requests.post(MONITOR_URL, json={

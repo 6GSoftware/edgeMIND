@@ -11,6 +11,7 @@ This module is the edgeMIND user query processing server. This module:
 
 #from dotenv import load_dotenv
 import json
+import time
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
@@ -35,7 +36,7 @@ def health():
 torch.random.manual_seed(0)
 
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
-INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_extracted_texts"
+#INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_extracted_texts"
 MONITOR_URL = "http://host.docker.internal:5006/status"
 
 model_path = "./saved_LLM_model"
@@ -145,6 +146,8 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
 @app.route('/process_query', methods=['POST'])
 def process_query():
 
+    start_time = time.time()
+
     try:
         res = requests.post(MONITOR_URL, json={
             "state": "start",
@@ -204,6 +207,9 @@ def process_query():
             logging.info(f"Started monitoring: {res.json()}")
         except Exception as e:
             logging.warning(f"Monitoring service not available: {e}")
+
+        end_time = time.time()
+        logging.info("RESPONSE TIME: " + str(end_time - start_time))
 
         return jsonify({'status': 'ok', 'message': llm_result})
 

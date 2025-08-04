@@ -93,6 +93,9 @@ def save_file(file_name, file):
 def upload_file():
     """Handle http POST request from the client and receive a file."""
 
+    start_time = time.time()
+    logging.info("\nSTART TIME: " + str(start_time) + "\n")
+
     try:
         res = requests.post(MONITOR_URL, json={
             "state": "start",
