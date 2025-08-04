@@ -1,4 +1,4 @@
-accelerate==0.34.2
+#accelerate==0.34.2
 aiofiles==23.2.1
 aiohappyeyeballs==2.4.3
 aiohttp==3.10.8
@@ -86,7 +86,7 @@ nvidia-cuda-nvrtc-cu12==12.1.105
 nvidia-cuda-runtime-cu11==11.7.99
 nvidia-cuda-runtime-cu12==12.1.105
 nvidia-cudnn-cu11==8.5.0.96
-nvidia-cudnn-cu12==9.1.0.70
+#nvidia-cudnn-cu12==9.1.0.70
 nvidia-cufft-cu11==10.9.0.58
 nvidia-cufft-cu12==11.0.2.54
 nvidia-curand-cu11==10.2.10.91
@@ -156,10 +156,10 @@ tokenizers==0.20.0
 tomlkit==0.12.0
 #torch==2.6.0    #before: 2.0.1
 torchaudio==2.3.0
-torchvision==0.15.2
+#torchvision==0.15.2
 tqdm==4.66.5
 transformers==4.45.1
-triton==2.0.0
+#triton==2.0.0
 typer==0.12.5
 typing-inspect==0.9.0
 typing_extensions==4.12.2

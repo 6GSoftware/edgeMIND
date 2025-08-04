@@ -14,10 +14,15 @@ import json
 import faiss
 from sentence_transformers import SentenceTransformer
 import requests
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 TAG = "situational_awareness_faiss:  "
 VECTOR_DB_URL = "http://vector_db_server:8000/store"
 #VECTOR_DB_URL = "http://localhost:8000/store"      #NOTE use when running outside container
+
+MONITOR_URL = "http://host.docker.internal:5006/status"
 
 file_path = './Pre_processed_text.txt'
 
@@ -47,17 +52,17 @@ def send_new_data_to_database(documents):
 
     row_sums = topic_scores_matrix.sum(axis=1) + epsilon
     topic_probs_matrix = topic_scores_matrix / row_sums[:, np.newaxis]
-    #print(f"{TAG} the topic_probs_matrix is: {np.matrix(topic_probs_matrix)}\n")
+    #logging.info(f"{TAG} the topic_probs_matrix is: {np.matrix(topic_probs_matrix)}\n")
 
     fitting_chunks = []
     outliners = []
 
     # Calculate which are the topics that suit best for each chunk
     best_topic_indices = topic_probs_matrix.argmax(axis=1)  # Best topic per chunk <- index of the topic
-    #print(f"{TAG} the best topic indices: {best_topic_indices}")
+    #logging.info(f"{TAG} the best topic indices: {best_topic_indices}")
     # Get the score of the best fitting topic per chunk
     best_topic_scores = topic_probs_matrix.max(axis=1)      # Best topic score per chunk <- best score
-    #print(f"{TAG} the best topic scores per chunk: {best_topic_scores}")
+    #logging.info(f"{TAG} the best topic scores per chunk: {best_topic_scores}")
 
     threshold = 0.5
 
@@ -65,7 +70,8 @@ def send_new_data_to_database(documents):
     for idx, score in enumerate(best_topic_scores):
         if score > threshold:
             topic_name = initial_topic_names[best_topic_indices[idx]]
-            fitting_chunks.append((chunks[idx], topic_name))
+            #fitting_chunks.append((chunks[idx], topic_name))
+            outliners.append(chunks[idx])
         else:
             outliners.append(chunks[idx])
 
@@ -108,11 +114,20 @@ def send_new_data_to_database(documents):
         })
 
     try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "stop",
+            "service-name": "situational_awareness_server"
+        }, timeout=2)
+        logging.info(f"Started monitoring: {res.json()}")
+    except Exception as e:
+        logging.warning(f"Monitoring service not available: {e}")
+
+    try:
         response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
         response.raise_for_status()
-        print(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
+        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
     except requests.RequestException as e:
-        print(f"{TAG} Failed to send data: {e}")
+        logging.info(f"{TAG} Failed to send data: {e}")
 
 
 def get_chunks(documents):

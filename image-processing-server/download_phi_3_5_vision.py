@@ -12,6 +12,9 @@ First, it checks if the model and processor are already saved locally in the './
 
 from transformers import AutoModelForCausalLM, AutoProcessor
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Check if the model and processor are already saved locally.
 if os.path.exists("./Phi-3.5-vision"):
@@ -42,6 +45,6 @@ if model_source == "microsoft/Phi-3.5-vision-instruct":
 
     model.save_pretrained("./Phi-3.5-vision", safe_serialization=False)
     processor.save_pretrained("./Phi-3.5-vision")
-    print("Model loaded and saved!")
+    logging.info("Model loaded and saved!")
 else:
-    print("Model loaded!")
+    logging.info("Model loaded!")

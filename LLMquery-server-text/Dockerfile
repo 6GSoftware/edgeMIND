@@ -9,6 +9,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 #COPY . .
 
-EXPOSE 5000 6000
-
-CMD ["python3", "-u", "llm-handling-server.py"]
+CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5000", "llm_handling_server:app"]

@@ -1,5 +1,6 @@
 # Requirements from image-service. TODO: Check if there is some unnecessary
 Flask==3.1.0
+gunicorn==23.0.0
 pillow==10.4.0
 sentence-transformers==3.1.1
 transformers==4.45.1

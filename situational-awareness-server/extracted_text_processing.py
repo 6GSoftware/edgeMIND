@@ -9,25 +9,34 @@ How this module works:
 """
 
 import socket
+import time
 import nltk
 from sentence_transformers import SentenceTransformer
 import re
 from situational_awareness_faiss import send_new_data_to_database
+import logging
+from flask import Flask, request, jsonify
+import threading
+import requests
 #from dotenv import load_dotenv
 
 # Loads the environment variables from the .env file
 #load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+
+app = Flask(__name__)
+
 HOST = "0.0.0.0"
-PORT = 6500
 TAG = "extracted_text_processing:  "
+MONITOR_URL = "http://host.docker.internal:5006/status"
 
 output_file_path = './Pre_processed_text.txt'
 
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
-    print("[NLTK] 'punkt' not found. Downloading now...")
+    logging.info("[NLTK] 'punkt' not found. Downloading now...")
     nltk.download('punkt_tab')
 
 
@@ -54,7 +63,7 @@ def process_extracted_texts(file_content):
             processed_file_content = processed_file_content + f"{sentence}\n"
             #output_file.write(f"Embedding: {np.array2string(embedding, precision=4, separator=',')}\n\n")
 
-    print(f"{TAG} Cleaned sentences saved to {output_file_path}")
+    logging.info(f"{TAG} Cleaned sentences saved to {output_file_path}")
 
     return processed_file_content
 
@@ -62,7 +71,7 @@ def process_extracted_texts(file_content):
 def receive_all(sock):
     data = b''
     while True:
-        print("Receiving data...")
+        logging.info("Receiving data...")
         part = sock.recv(4096)
         if not part:
             break
@@ -70,28 +79,74 @@ def receive_all(sock):
     return data.decode("utf-8")
 
 
-def run_server():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen()
-        print(f"{TAG} Server listening on {HOST}:{PORT}")
-        while True:
-            conn, addr = s.accept()
-            with conn:
-                print(f"{TAG} Connection established with {addr}")
+#def run_server():
+#    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+#        s.bind((HOST, PORT))
+#        s.listen()
+#        logging.info(f"{TAG} Server listening on {HOST}:{PORT}")
+#        while True:
+#            conn, addr = s.accept()
+#            with conn:
+#                logging.info(f"{TAG} Connection established with {addr}")
+#
+#                processed_file_contents = receive_all(conn)
+#                if not processed_file_contents:
+#                    logging.info(f"{TAG} Connection closed by {addr}")
+#                    continue
+#
+#                conn.sendall("Data was received!".encode('utf-8'))
+#                logging.info(f"{TAG} Response sent")
+#
+#                logging.info(f'AFTER: {processed_file_contents}')
+#
+#                processed_file_contents = process_extracted_texts(processed_file_contents)
+#
+#                logging.info(f'BEFORE: {processed_file_contents}')
+#                
+#                send_new_data_to_database([
+#                    line + '\n' for line in processed_file_contents.split('\n') if line.strip()
+#                ])
 
-                processed_file_contents = receive_all(conn)
-                if not processed_file_contents:
-                    print(f"{TAG} Connection closed by {addr}")
-                    continue
 
-                conn.sendall("Data was received!".encode('utf-8'))
-                print(f"{TAG} Response sent")
+@app.route('/process_extracted_texts', methods=['POST'])
+def handle_extracted_texts():
+    
+    try:
+        res = requests.post(MONITOR_URL, json={
+            "state": "start",
+            "service-name": "situational_awareness_server"
+        })
+        logging.info("Started monitoring:", res.json())
+    except Exception as e:
+        logging.info("Failed to start monitoring:", e)
 
-                processed_file_contents = process_extracted_texts(processed_file_contents)
-                send_new_data_to_database([
-                    line + '\n' for line in processed_file_contents.split('\n') if line.strip()
-                ])
+    try:
+        # Extract data from the HTTP request
+        processed_file_contents = request.get_json().get("data", "")
 
-if __name__ == "__main__":
-    run_server()
+        if not processed_file_contents:
+            logging.info(f"{TAG} No data received.")
+            return jsonify({"status": "error", "message": "No data received"}), 400
+
+        logging.info(f"{TAG} AFTER: {processed_file_contents}")
+
+        processed_file_contents = process_extracted_texts(processed_file_contents)
+
+        logging.info(f"{TAG} BEFORE: {processed_file_contents}")
+
+        send_new_data_to_database([
+            line + '\n' for line in processed_file_contents.split('\n') if line.strip()
+        ])
+
+        end_time = time.time()
+        logging.info("\nEND TIME: " + str(end_time) + "\n")
+
+        return jsonify({"status": "success", "message": "Data processed"})
+
+    except Exception as e:
+        logging.error(f"{TAG} Error while processing: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+
+#if __name__ == '__main__':
+#    app.run(host='0.0.0.0', port=6501)

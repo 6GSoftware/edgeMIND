@@ -8,9 +8,13 @@ file is transcribed with the whisper model. After that the transcription is save
 and the name of the file is saved in the processed_files.txt file to prevent processing the same file again.
 """
 
+from concurrent.futures import ProcessPoolExecutor
 import os
 import whisper  # Whisper model for audio transcription
+import logging
 #from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO)
 
 # Loads the environment variables from the .env file
 #load_dotenv()
@@ -21,51 +25,76 @@ TAG = "audio_processing:  "
 audio_folder = './Audio'
 
 # Step 1: Initialize Whisper model for transcription
-model_whisper = whisper.load_model("base")
-print(f"{TAG} Whisper model loaded successfully.")
+#model_whisper = whisper.load_model("base")
+#model_whisper = whisper.load_model("tiny", device="cuda") # gpu
+#(f"{TAG} Whisper model loaded successfully.")
 
-def transcribe_audio_files(audio_folder, new_file):
+model_whisper = None
+
+
+def init_model():
+    global model_whisper
+    model_whisper = whisper.load_model("base")
+    #model_whisper = whisper.load_model("tiny", device="cuda") # gpu
+    (f"{TAG} Whisper model loaded successfully.")
+
+
+def transcribe_audio_files(new_file):
     """Load and process audio files, returning the transcriptions."""
     
+    global model_whisper
+
     texts = []
 
     # Step 3: Transcribe audio files and append transcriptions to texts
     if new_file.endswith('.mp3') or new_file.endswith('.wav'):
 
         new_file_path = os.path.join(audio_folder, new_file)
-        print(f"{TAG} Processing file: {new_file_path}")
+        logging.info(f"{TAG} Processing file: {new_file_path}")
         
         # Transcribe the audio file using Whisper
         try:
             result = model_whisper.transcribe(new_file_path)
             transcription = result['text']
-            print(f"Transcription for {new_file}: {transcription}")
+            logging.info(f"Transcription for {new_file}: {transcription}")
             
             texts.append((new_file, transcription))  # Append the audio file name and transcription
         
         except Exception as e:
-            print(f"{TAG} Error transcribing {new_file}: {e}")
+            logging.info(f"{TAG} Error transcribing {new_file}: {e}")
             
     return texts
 
 
+'''
 def process_audio_files(new_file):
     # Process audio files and avoid reprocessing already transcribed files
     transcriptions = transcribe_audio_files(audio_folder, new_file)
     
     if not transcriptions:
-        print(f"{TAG} No new transcriptions were generated.")
+        logging.info(f"{TAG} No new transcriptions were generated.")
 
     return transcriptions
+'''
+
+executor = ProcessPoolExecutor(max_workers=1, initializer=init_model)
 
 def process_audio_files(new_file):
     """Process audio files and return transcriptions as a formatted string"""
 
-    # Step 1: Process audio files
-    transcriptions = transcribe_audio_files(audio_folder, new_file)
+    future = executor.submit(transcribe_audio_files, new_file)
+    transcriptions = None
+    # Process audio files
+    #init_model()
+    #transcriptions = transcribe_audio_files(new_file)
+    try:
+        transcriptions = future.result()
+    except Exception as e:
+        logging.info("An error occurred in transcribing the audio file:\n" + str(e))
+        return ""   # Return empty string if nothing was processed
 
     if not transcriptions:
-        print(f"{TAG} No new transcriptions were generated.")
+        logging.info(f"{TAG} No new transcriptions were generated.")
         return ""  # Return empty string if nothing was processed
 
     # Step 2: Build the combined text
@@ -74,5 +103,5 @@ def process_audio_files(new_file):
         combined_text += f"Transcription for {audio_file}:\n"
         combined_text += transcription + '\n\n'
 
-    print(f"{TAG} Processing complete. New transcriptions ready in memory.")
+    logging.info(f"{TAG} Processing complete. New transcriptions ready in memory.")
     return combined_text
