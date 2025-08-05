@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vector-db-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vector-db-server
+  template:
+    metadata:
+      labels:
+        app: vector-db-server
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: vector-db-server
+            topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        computing-power: medium
+      containers:
+      - name: vector-db-server
+        image: registry.local:4000/edgemind-vector_db_server:latest
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vector-db-server
+spec:
+  selector:
+    app: vector-db-server
+  ports:
+  - port: 8000
+    targetPort: 8000

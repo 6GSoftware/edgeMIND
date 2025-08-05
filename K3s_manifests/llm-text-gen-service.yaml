@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-text-gen-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-text-gen-service
+  template:
+    metadata:
+      labels:
+        app: llm-text-gen-service
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: llm-text-gen-service
+            topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        computing-power: high
+      containers:
+      - name: llm-text-gen-service
+        image: registry.local:4000/edgemind-llm_query_server_text:latest
+        ports:
+        - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-text-gen-service
+spec:
+  selector:
+    app: llm-text-gen-service
+  ports:
+  - port: 5000
+    targetPort: 5000
