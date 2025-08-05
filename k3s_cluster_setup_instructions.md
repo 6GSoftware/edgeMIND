@@ -4,7 +4,7 @@
 
 ### 0. Give all machines a unique host name
 
-Check the host name of all machines with this command:
+All the machines in the cluster must have unique host names. Check the host name of all machines with this command:
 ```bash
 hostnamectl
 ```
@@ -18,7 +18,7 @@ hostnamectl set-hostname <NEW-HOSTNAME>
 
 ### 1. Install K3s on master node
 
-Run this command on the master node machine
+Run this command on the master node machine:
 
 ```bash
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--flannel-backend=host-gw" K3S_TOKEN="<CUSTOM-TOKEN>" sh -
@@ -37,6 +37,8 @@ Lastly, run this on the master node and copy the entire output string:
 ```bash
 sudo cat /var/lib/rancher/k3s/server/node-token
 ```
+
+The output is a token that is needed in joining the worker nodes to the cluster.
 
 ### 2. Install K3s on the worker nodes
 
@@ -88,16 +90,25 @@ After that, pull and run the registry container:
 docker run -d -p 4000:5000 --name registry registry:2
 ```
 
-Tag the images and push them to the registry:
+Here we map port 4000 to port 5000, because the registry uses by default port 5000, but we already use port 5000 in the EdgeMIND framework, so we need to use some other port (here 4000).
+
+Tag the images and push them to the local registry:
 ```bash
 docker tag <IMAGE-NAME> registry.local:4000/<IMAGE-NAME>
 
 docker push registry.local:4000/<IMAGE-NAME>
 ```
 
+example:
+```bash
+docker tag audio-processing-service registry.local:4000/audio-processing-service
+
+docker push registry.local:4000/audio-processing-service
+```
+
 ### 6. Create and edit registries.yaml files
 
-On each node, edit or create this file: `/etc/rancher/k3s/registries.yaml`.
+On each node, edit (or create) this file: `/etc/rancher/k3s/registries.yaml`.
 
 In each `registries.yaml` file, add:
 ```yaml
@@ -107,8 +118,7 @@ mirrors:
       - "http://registry.local:4000"
 ```
 
-After that restart the k3s service on all master nodes and worker nodes.
-
+After that restart the k3s service on all master nodes and worker nodes:
 On master node(s), run:
 ```bash
 sudo systemctl restart k3s
@@ -128,9 +138,16 @@ If you want to deploy specific containers on specific nodes you can add labels t
 sudo kubectl label node <NODE-NAME> node-role.kubernetes.io/<LABEL-KEY>=<LABEL-VALUE>
 ```
 
+You get the names of the nodes by running:
+```bash
+sudo kubectl get nodes -o wide
+```
+
+Replace `<LABEl_KEY>` and `<LABEL-VALUE>` with any key-value pair.
+
 ### 8. Create k3s manifest files
 
-Create a folder (for example `k3s` or `manifest`) anywhere on the master node machine to store the manifest files.
+Create a folder (for example `k3s` or `manifest`) anywhere on the master node machine to store the manifest files (needed for deployment of the services).
 
 For each service you intend to deploy, create a manifest file (yaml format), for example, with the help of this template:
 ```yaml
