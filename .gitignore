@@ -64,6 +64,7 @@ anskun filut
 data_files_for_reset
 locustfile.py
 /traefik
+*.zip
 
 # Image files used in testing
 /LLMquery-server-audio/*.png

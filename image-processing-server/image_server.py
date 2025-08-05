@@ -43,14 +43,14 @@ def process_file(**kwargs):
 #- The mug is being held in a way that suggests it is being presented or shown off.
 #- There are no other objects or people visible in the image."""
 
-    try:
+    '''try:
         res = requests.post(MONITOR_URL, json={
             "state": "stop",
             "service-name": "edgemind-image-service"
         }, timeout=2)
         logging.info(f"Started monitoring: {res.json()}")
     except Exception as e:
-        logging.warning(f"Monitoring service not available: {e}")
+        logging.warning(f"Monitoring service not available: {e}")'''
 
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
     
@@ -93,7 +93,7 @@ def save_file(file_name, file):
 def upload_file():
     """Handle http POST request from the client and receive a file."""
 
-    start_time = time.time()
+    '''start_time = time.time()
     logging.info("\nSTART TIME: " + str(start_time) + "\n")
 
     try:
@@ -103,7 +103,7 @@ def upload_file():
         })
         logging.info("Started monitoring:", res.json())
     except Exception as e:
-        logging.info("Failed to start monitoring:", e)
+        logging.info("Failed to start monitoring:", e)'''
 
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400

@@ -146,7 +146,7 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
 @app.route('/process_query', methods=['POST'])
 def process_query():
 
-    start_time = time.time()
+    '''start_time = time.time()
 
     try:
         res = requests.post(MONITOR_URL, json={
@@ -155,7 +155,7 @@ def process_query():
         })
         logging.info("Started monitoring:", res.json())
     except Exception as e:
-        logging.info("Failed to start monitoring:", e)
+        logging.info("Failed to start monitoring:", e)'''
         
     try:
         user_question = request.json.get('question', '')
@@ -199,7 +199,7 @@ def process_query():
         #input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
         #logging.info(f"Received from the input side: {input_response.text}")
 
-        try:
+        '''try:
             res = requests.post(MONITOR_URL, json={
                 "state": "stop",
                 "service-name": "llm_query_server_text"
@@ -209,7 +209,7 @@ def process_query():
             logging.warning(f"Monitoring service not available: {e}")
 
         end_time = time.time()
-        logging.info("RESPONSE TIME: " + str(end_time - start_time))
+        logging.info("RESPONSE TIME: " + str(end_time - start_time))'''
 
         return jsonify({'status': 'ok', 'message': llm_result})
 

@@ -31,14 +31,14 @@ def process_file(**kwargs):
     logging.info(f"{TAG} Processing PDF file...")
     processed_file_content = process_pdf_files(file_name)
 
-    try:
+    '''try:
         res = requests.post(MONITOR_URL, json={
             "state": "stop",
             "service-name": "pdf-service"
         }, timeout=2)
         logging.info(f"Started monitoring: {res.json()}")
     except Exception as e:
-        logging.warning(f"Monitoring service not available: {e}")
+        logging.warning(f"Monitoring service not available: {e}")'''
 
     logging.info(f"DONE")
 
@@ -72,7 +72,7 @@ def save_file(file_name, file):
 def upload_file():
     """Handle http POST request from the client and receive a file."""
 
-    start_time = time.time()
+    '''start_time = time.time()
     logging.info("\nSTART TIME: " + str(start_time) + "\n")
 
     try:
@@ -82,7 +82,7 @@ def upload_file():
         })
         logging.info("Started monitoring:", res.json())
     except Exception as e:
-        logging.info("Failed to start monitoring:", e)
+        logging.info("Failed to start monitoring:", e)'''
 
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
@@ -107,19 +107,7 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-<<<<<<< HEAD
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((HOST, PORT))
-            s.sendall(processed_file_content.encode('utf-8'))
-            s.shutdown(socket.SHUT_WR)
-            response = s.recv(1024)
-            print(f"{TAG}Response from the processor: {response.decode('utf-8')}")
-            s.close()
-    except Exception as e:
-        print(f"{TAG}Connection failed: {e}")
-=======
         url = "http://situational_awareness_server:6501/process_extracted_texts"
->>>>>>> feature/monitoring-integration
 
         payload = {"data": processed_file_content}
 

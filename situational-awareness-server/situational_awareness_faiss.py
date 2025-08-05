@@ -113,14 +113,14 @@ def send_new_data_to_database(documents):
             "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
         })
 
-    try:
+    '''try:
         res = requests.post(MONITOR_URL, json={
             "state": "stop",
             "service-name": "situational_awareness_server"
         }, timeout=2)
         logging.info(f"Started monitoring: {res.json()}")
     except Exception as e:
-        logging.warning(f"Monitoring service not available: {e}")
+        logging.warning(f"Monitoring service not available: {e}")'''
 
     try:
         response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})

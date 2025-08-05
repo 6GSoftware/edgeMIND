@@ -111,14 +111,14 @@ def receive_all(sock):
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
     
-    try:
+    '''try:
         res = requests.post(MONITOR_URL, json={
             "state": "start",
             "service-name": "situational_awareness_server"
         })
         logging.info("Started monitoring:", res.json())
     except Exception as e:
-        logging.info("Failed to start monitoring:", e)
+        logging.info("Failed to start monitoring:", e)'''
 
     try:
         # Extract data from the HTTP request
@@ -138,8 +138,8 @@ def handle_extracted_texts():
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
         ])
 
-        end_time = time.time()
-        logging.info("\nEND TIME: " + str(end_time) + "\n")
+        '''end_time = time.time()
+        logging.info("\nEND TIME: " + str(end_time) + "\n")'''
 
         return jsonify({"status": "success", "message": "Data processed"})
 

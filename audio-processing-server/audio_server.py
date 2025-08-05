@@ -32,14 +32,14 @@ def process_file(**kwargs):
     logging.info(f"{TAG} Processing audio file...")
     processed_file_content = process_audio_files(file_name)
 
-    try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "stop",
-            "service-name": "edgemind-audio-service"
-        }, timeout=2)
-        logging.info(f"Started monitoring: {res.json()}")
-    except Exception as e:
-        logging.warning(f"Monitoring service not available: {e}")
+#    try:
+#        res = requests.post(MONITOR_URL, json={
+#            "state": "stop",
+#            "service-name": "edgemind-audio-service"
+#        }, timeout=2)
+#        logging.info(f"Started monitoring: {res.json()}")
+#    except Exception as e:
+#        logging.warning(f"Monitoring service not available: {e}")
 
     send_to_extracted_text_processing(processed_file_content)
 
@@ -67,17 +67,17 @@ def save_file(file_name, file):
 def upload_file():
     """Handle http POST request from the client and receive a file."""
 
-    start_time = time.time()
-    logging.info("\nSTART TIME: " + str(start_time) + "\n")
-
-    try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "start",
-            "service-name": "edgemind-audio-service"
-        })
-        logging.info("Started monitoring:", res.json())
-    except Exception as e:
-        logging.info("Failed to start monitoring:", e)
+#    start_time = time.time()
+#    logging.info("\nSTART TIME: " + str(start_time) + "\n")
+#
+#    try:
+#        res = requests.post(MONITOR_URL, json={
+#            "state": "start",
+#            "service-name": "edgemind-audio-service"
+#        })
+#        logging.info("Started monitoring:", res.json())
+#    except Exception as e:
+#        logging.info("Failed to start monitoring:", e)
 
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
