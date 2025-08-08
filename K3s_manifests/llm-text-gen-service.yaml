@@ -13,17 +13,17 @@ spec:
         app: llm-text-gen-service
     spec:
       affinity:
-        podAntiAffinity:
+        nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app: llm-text-gen-service
-            topologyKey: "kubernetes.io/hostname"
-      nodeSelector:
-        computing-power: high
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: computing-power
+                operator: In
+                values:
+                - high 
       containers:
       - name: llm-text-gen-service
-        image: registry.local:4000/edgemind-llm_query_server_text:latest
+        image: registry.local:4000/edgemind-llm_query_server_text
         ports:
         - containerPort: 5000
 ---

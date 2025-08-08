@@ -108,7 +108,15 @@ docker push registry.local:4000/audio-processing-service
 
 ### 6. Create and edit registries.yaml files
 
-On each node, edit (or create) this file: `/etc/rancher/k3s/registries.yaml`.
+On **each node**, create this directory if it doesn't exist yet:
+```bash
+sudo mkdir -p /etc/rancher/k3s
+```
+
+Then, edit (or create) this file: `/etc/rancher/k3s/registries.yaml`. To edit the file, open a text editor, for example:
+```bash
+sudo nano /etc/rancher/k3s/registries.yaml
+```
 
 In each `registries.yaml` file, add:
 ```yaml
@@ -118,7 +126,9 @@ mirrors:
       - "http://registry.local:4000"
 ```
 
-After that restart the k3s service on all master nodes and worker nodes:
+**Remember to do these steps on all nodes in the cluster!**
+
+After that restart the k3s service on **all master nodes and worker nodes**:
 On master node(s), run:
 ```bash
 sudo systemctl restart k3s
@@ -135,7 +145,7 @@ sudo systemctl restart k3s-agent
 
 If you want to deploy specific containers on specific nodes you can add labels to the nodes like this:
 ```bash
-sudo kubectl label node <NODE-NAME> node-role.kubernetes.io/<LABEL-KEY>=<LABEL-VALUE>
+sudo kubectl label node <NODE-NAME> <LABEL-KEY>=<LABEL-VALUE>
 ```
 
 You get the names of the nodes by running:
