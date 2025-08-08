@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: vector-db-server
-        image: registry.local:4000/edgemind-vector_db_server
+        image: registry.local:4000/edgemind/vector-db-server
         ports:
         - containerPort: 8000
       nodeSelector:
