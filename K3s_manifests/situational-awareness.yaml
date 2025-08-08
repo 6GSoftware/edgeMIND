@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edgemind-situational-awareness-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edgemind-situational-awareness-server
+  template:
+    metadata:
+      labels:
+        app: edgemind-situational-awareness-server
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: edgemind-vector-db-server
+            topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        computing-power: medium
+      containers:
+      - name: edgemind-situational-awareness-server
+        image: registry.local:4000/edgemind-situational_awareness_server:latest
+        ports:
+        - containerPort: 6501
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edgemind-situational-awareness-server
+spec:
+  selector:
+    app: edgemind-situational-awareness-server
+  ports:
+  - port: 6501
+    targetPort: 6501
