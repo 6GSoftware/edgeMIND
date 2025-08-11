@@ -19,8 +19,14 @@ spec:
               matchLabels:
                 app: edgemind-vector-db-server
             topologyKey: "kubernetes.io/hostname"
-      nodeSelector:
-        computing-power: medium
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: computing-power
+                    operator: In
+                    values: ["medium"]
       containers:
       - name: edgemind-situational-awareness-server
         image: registry.local:4000/edgemind-situational_awareness_server:latest
