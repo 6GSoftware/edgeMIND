@@ -202,3 +202,30 @@ spec:
     targetPort: 1000    # replace with the container's internal port
 
 ```
+
+```bash
+sudo kubectl apply -f <NAME_OF_MANIFEST_FILE>.yaml
+```
+
+Get all repositories in the local Docker registry:
+```bash
+curl -X GET http://localhost:4000/v2/_catalog
+```
+
+
+
+
+Container logs and output can be seen with:
+```bash
+sudo kubectl logs <POD-NAME>
+```
+
+Restart a service/deployment:
+```bash
+sudo kubectl rollout restart deployment <NAME_OF_SERVICE>
+```
+
+Go inside the pod:
+```bash
+sudo kubectl exec -it <POD_NAME> -- /bin/sh
+```

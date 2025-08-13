@@ -1,17 +1,17 @@
 services:
-  llm_query_server_text:
-    build: 
-      context: ./LLMquery-server-text
-    networks:
-      - edgemind_network
-    ports:
-      - "5000:5000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      #- "vector_db_server:xx"    # NOTE: de-centralized, add IP
-    volumes:
-      - ./LLMquery-server-text:/app
-
+#  llm_query_server_text:
+#    build: 
+#      context: ./LLMquery-server-text
+#    networks:
+#      - edgemind_network
+#    ports:
+#      - "5000:5000"
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#      #- "vector_db_server:xx"    # NOTE: de-centralized, add IP
+#    volumes:
+#      - ./LLMquery-server-text:/app
+#
   llm_query_server_audio:
     build: 
       context: ./LLMquery-server-audio
@@ -46,67 +46,67 @@ services:
     volumes:
       - ./edgeMIND-vector-db-server:/app
 
-  image-service:
-    build: ./image-processing-server
-    networks:
-      - edgemind_network
-    ports:
-      - "5002:5002"
-    volumes:
-      - ./image-processing-server:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      #- "situational_awareness_server:xx"    # NOTE: de-centralized, add IP
-    #runtime: nvidia
-    #environment:
-    #  - NVIDIA_VISIBLE_DEVICES=all
-     
-  audio-service:
-    build: ./audio-processing-server
-    container_name: edgemind-audio-service
-    networks:
-      - edgemind_network
-    ports:
-      - "5003:5003"
-    volumes:
-      - ./audio-processing-server:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      #- "situational_awareness_server:xx"    # NOTE: de-centralized, add IP
-    #environment:
-    #  - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-    #deploy:
-    #  resources:
-    #    reservations:
-    #      devices:
-    #        - capabilities: [gpu]
-
-  pdf-service:
-    build: ./pdf-processing-server
-    networks:
-      - edgemind_network
-    ports:
-      - "5004:5004"
-    volumes:
-      - ./pdf-processing-server:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      #- "situational_awareness_server:xx"    # NOTE: de-centralized, add IP
-    env_file:
-      - .env
-            
-  situational_awareness_server:
-    build:
-      context: ./situational-awareness-server
-    networks:
-      - edgemind_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "6501:6501"
-    volumes:
-      - ./situational-awareness-server:/app
-
+#  image-service:
+#    build: ./image-processing-server
+#    networks:
+#      - edgemind_network
+#    ports:
+#      - "5002:5002"
+#    volumes:
+#      - ./image-processing-server:/app
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#      #- "situational_awareness_server:xx"    # NOTE: de-centralized, add IP
+#    #runtime: nvidia
+#    #environment:
+#    #  - NVIDIA_VISIBLE_DEVICES=all
+#     
+#  audio-service:
+#    build: ./audio-processing-server
+#    container_name: edgemind-audio-service
+#    networks:
+#      - edgemind_network
+#    ports:
+#      - "5003:5003"
+#    volumes:
+#      - ./audio-processing-server:/app
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#      #- "situational_awareness_server:xx"    # NOTE: de-centralized, add IP
+#    #environment:
+#    #  - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+#    #deploy:
+#    #  resources:
+#    #    reservations:
+#    #      devices:
+#    #        - capabilities: [gpu]
+#
+#  pdf-service:
+#    build: ./pdf-processing-server
+#    networks:
+#      - edgemind_network
+#    ports:
+#      - "5004:5004"
+#    volumes:
+#      - ./pdf-processing-server:/app
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#      #- "situational_awareness_server:xx"    # NOTE: de-centralized, add IP
+#    env_file:
+#      - .env
+#            
+#  situational_awareness_server:
+#    build:
+#      context: ./situational-awareness-server
+#    networks:
+#      - edgemind_network
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#    ports:
+#      - "6501:6501"
+#    volumes:
+#      - ./situational-awareness-server:/app
+#
 #  traefik:
 #    image: traefik:v3.0
 #    container_name: traefik

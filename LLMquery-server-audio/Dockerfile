@@ -7,8 +7,9 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install eco2ai
+#RUN pip install eco2ai
 
 COPY . .
 
-CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5001", "llm_handling_server:app"]
+#CMD ["gunicorn", "--preload", "-w", "1", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5001", "llm_handling_server:app"]
+CMD ["python3", "-u", "llm_handling_server.py"]

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-image-gen-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-image-gen-service
+  template:
+    metadata:
+      labels:
+        app: llm-image-gen-service
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: processor
+                operator: In
+                values:
+                - gpu
+      containers:
+      - name: llm-image-gen-service
+        image: registry.local:4000/edgemind/llm-image-gen-service
+        ports:
+        - containerPort: 5001
+        resources:
+          limits:
+            nvidia.com/gpu: 1 # requesting 1 GPU
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-image-gen-service
+spec:
+  type: NodePort
+  selector:
+    app: llm-image-gen-service
+  ports:
+  - port: 5001
+    targetPort: 5001
+    nodePort: 30001

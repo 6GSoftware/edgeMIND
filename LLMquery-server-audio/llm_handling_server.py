@@ -10,13 +10,15 @@ This module is the edgeMIND user query processing server. This module:
 """
 
 #import os
+import base64
+from io import BytesIO
 import json
 import torch
 #from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.prompts import PromptTemplate
 #from diffusers import StableDiffusionPipeline
 #from diffusers import LCMScheduler, AutoPipelineForText2Image
-from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionXLPipeline
 from datetime import datetime
 import socket
 #import re
@@ -34,25 +36,12 @@ app = Flask(__name__)
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
-#SERVER_IP_INPUT_LAYER = "---"
-#SERVER_PORT_INPUT_LAYER = 6500
-
-#VECTOR_DB_URL = "http://localhost:8000/search" # Use in testing outside container
-VECTOR_DB_URL = "http://vector_db_server:8000/search"
-
-MONITOR_URL = "http://host.docker.internal:5006/status"
-
-model_path = "./saved_LLM_model"
-#model_path = "./saved_LLM_model"   #NOTE: Use in testing outside container
+VECTOR_DB_URL = "http://vector-db-server:8000/search"
 
 # Define the prompt template for the assistant
 prompt_template = """
 {question} , high quality. Context: {context}
 """
-
-#prompt_template = """
-#{question}
-#"""
 
 # Initialize the prompt with template
 PROMPT = PromptTemplate(
@@ -63,20 +52,14 @@ PROMPT = PromptTemplate(
 #---------------------------------------------------------------------------------------------------
 
 # Test 3
-pipe = DiffusionPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float32)
-pipe = pipe.to("cpu")
+pipe = StableDiffusionXLPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
+pipe = pipe.to("cuda")
 
 @app.route("/generate-image", methods=["POST"])
 def generate_image():
-
-    try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "start",
-            "service-name": "llm_query_server_audio"
-        })
-        logging.info("Started monitoring:", res.json())
-    except Exception as e:
-        logging.info("Failed to start monitoring:", e)
+    """Initialize the server. \n
+        Create and start the http server. \n
+        Start listening for client connections."""
 
     try:
         data = request.get_json()
@@ -86,10 +69,6 @@ def generate_image():
             return jsonify({"status": "error", "message": "No question provided"}), 400
         
         logging.info(f"Received from client: {user_question}")
-
-        """Initialize the server. \n
-        Create and start the socket server. \n
-        Start listening for client connections."""
 
         # Test 1
         '''
@@ -151,22 +130,18 @@ def generate_image():
             #image = pipe(prompt=prompt, num_inference_steps=15).images[0]
             # disable guidance_scale by passing 0
             #image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
-            # Generate image
+            # Generate (PIL) image
             image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
 
-            try:
-                res = requests.post(MONITOR_URL, json={
-                    "state": "stop",
-                    "service-name": "llm_query_server_audio"
-                }, timeout=2)
-                logging.info(f"Started monitoring: {res.json()}")
-            except Exception as e:
-                logging.warning(f"Monitoring service not available: {e}")
-
-            # Send the generated image to the mobile app
             if image:
-                image.save("./output.png")
-                return jsonify({"status": "success", "message": "Image was created!"})
+                # Save image to in-memory buffer
+                buffer = BytesIO()
+                image.save(buffer, format="PNG")
+                buffer.seek(0)
+
+                # Send the generated image to the client
+                encoded_img_string = base64.b64encode(buffer.read()).decode('utf-8')
+                return jsonify({"status": "success", "message": encoded_img_string}), 200
             else:
                 return jsonify({"status": "error", "message": "Image generation failed"}), 500
 
@@ -179,20 +154,6 @@ def generate_image():
         logging.exception("Exception in /generate-image")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-        # Connect to the input processing layer
-        #input_layer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #input_layer_socket.connect((SERVER_IP_INPUT_LAYER, SERVER_PORT_INPUT_LAYER))
-        #
-        ## Send the llm query result to the input processing layer for further processing
-        #input_layer_socket.send(llm_result.encode('utf-8'))
-        #logging.info("LLM result sent to the input layer (text processing and situational awareness)")
-        #
-        #response = input_layer_socket.recv(1024).decode('utf-8')
-        #logging.info(f"Received from the input side: {response}")
-        #input_layer_socket.close()
-        #logging.info("Connection closed with the input processing layer")
 
-
-#if __name__ == '__main__':
-#    threading.Thread(target=start_server, daemon=True).start()
-#    app.run(host='0.0.0.0', port=6001)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5001)
