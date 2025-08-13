@@ -19,7 +19,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 TAG = "situational_awareness_faiss:  "
-VECTOR_DB_URL = "http://vector_db_server:8000/store"
+#VECTOR_DB_URL = "http://vector_db_server:8000/store"
+VECTOR_DB_URL = "http://vector-db-server:8000/store"
+
 #VECTOR_DB_URL = "http://localhost:8000/store"      #NOTE use when running outside container
 
 MONITOR_URL = "http://host.docker.internal:5006/status"

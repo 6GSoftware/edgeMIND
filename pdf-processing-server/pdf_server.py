@@ -10,9 +10,9 @@ logging.basicConfig(level=logging.INFO)
 
 from pdf_processing import process_pdf_files
 
-#HOST = "localhost"      #NOTE use when running outside of container
-HOST = "situational_awareness_server"
-PORT = 6500
+#HOST = "localhost"      # For running outside of container
+#HOST = "situational_awareness_server" # For setup before K3s
+HOST = "edgemind-situational-awareness-server" # For K3s setup
 
 TAG = "pdf_service: "
 
@@ -107,7 +107,8 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-        url = "http://situational_awareness_server:6501/process_extracted_texts"
+        # url = "http://situational_awareness_server:6501/process_extracted_texts" # For setup before K3s
+        url = "http://edgemind-situational-awareness-server:6501/process_extracted_texts" # For K3s setup
 
         payload = {"data": processed_file_content}
 

@@ -7,7 +7,8 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 app = Flask(__name__)
 

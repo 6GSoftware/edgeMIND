@@ -17,8 +17,15 @@ spec:
         image: registry.local:4000/edgemind/vector-db-server
         ports:
         - containerPort: 8000
-      nodeSelector:
-        computing-power: medium
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: computing-power
+                    operator: In
+                    values: ["medium"]
 ---
 apiVersion: v1
 kind: Service

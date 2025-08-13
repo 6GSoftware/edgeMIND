@@ -13,7 +13,8 @@ app = Flask(__name__)
 
 from image_processing import process_image_files
 
-HOST = "situational_awareness_server"
+# HOST = "situational_awareness_server" # For setup before K3s
+HOST = "edgemind-situational-awareness-server" # For K3s setup
 
 TAG = "image_service: "
 
@@ -142,7 +143,8 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-        url = "http://situational_awareness_server:6501/process_extracted_texts"
+        # url = "http://situational_awareness_server:6501/process_extracted_texts" # For setup before K3s
+        url = "http://edgemind-situational-awareness-server:6501/process_extracted_texts" # For K3s setup
 
         payload = {"data": processed_file_content}
 
