@@ -203,6 +203,8 @@ spec:
 
 ```
 
+## Useful commands (for debugging)
+Apply a manifest file to K3s:
 ```bash
 sudo kubectl apply -f <NAME_OF_MANIFEST_FILE>.yaml
 ```
@@ -212,20 +214,108 @@ Get all repositories in the local Docker registry:
 curl -X GET http://localhost:4000/v2/_catalog
 ```
 
-
-
-
-Container logs and output can be seen with:
+Get container logs and output:
 ```bash
 sudo kubectl logs <POD-NAME>
 ```
 
-Restart a service/deployment:
+Restart a deployment in K3s:
 ```bash
 sudo kubectl rollout restart deployment <NAME_OF_SERVICE>
 ```
 
-Go inside the pod:
+Get inside a pod's shell:
 ```bash
 sudo kubectl exec -it <POD_NAME> -- /bin/sh
 ```
+
+
+## FIXING THE K3S GPU ISSUE
+
+After installing k3s and nvidia-container-toolkit, install the Nvidia device plugin operator:
+```bash
+helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
+
+helm repo update
+
+helm upgrade -i nvdp nvdp/nvidia-device-plugin \
+      --version=0.14.5 \
+      --namespace nvidia-device-plugin \
+      --create-namespace \
+      --set gfd.enabled=true \
+      --set runtimeClassName=nvidia
+```
+
+You need to authenticate to nvcr.io and get an API key:
+1. Go to this website: https://catalog.ngc.nvidia.com/?filters=&orderBy=weightPopularDESC&query=&page=&pageSize=
+2. Log in → Click on your profile → Setup → API Key.
+3. Generate a new API key. **Copy it (and save it somewhere)!**
+
+After generating the API key log in to the registry:
+```bash
+docker login nvcr.io -u '$oauthtoken' -p <YOUR_NGC_API_KEY>
+```
+Replace `<YOUR_NGC_API_KEY>` with your API key!
+
+Create a Kubernetes secret for pulling images:
+```bash
+kubectl create secret docker-registry nvidia-secret \
+  --docker-server=nvcr.io \
+  --docker-username='$oauthtoken' \
+  --docker-password='<YOUR_NGC_API_KEY>' \
+  --namespace nvidia-device-plugin
+```
+Replace `<YOUR_NGC_API_KEY>` with your API key!
+
+Install/upgrade the nvidia-device-plugin and tell Helm to use the secret:
+```bash
+helm upgrade nvdp nvdp/nvidia-device-plugin \
+  --install \
+  --version=0.14.5 \
+  --namespace nvidia-device-plugin \
+  --create-namespace \
+  --set gfd.enabled=true \
+  --set runtimeClassName=nvidia \
+  --set imagePullSecrets[0].name=nvidia-secret
+```
+The last line tells helm to use the secret that you just created.
+
+Create runtimeclass manifest file (example name: `nvidia-runtimeclass.yaml`) and apply it with `kubectl apply -f <name-of-manifest-file>.yaml`:
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: nvidia
+handler: nvidia
+```
+
+Add this under `spec.template.spec` to the manifest files of the pods which you want to access the GPU:
+```yaml
+runtimeClassName: nvidia
+```
+Example:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-image-gen-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-image-gen-service
+  template:
+    metadata:
+      labels:
+        app: llm-image-gen-service
+    spec:
+      runtimeClassName: nvidia  # The runtime class name is here!
+      affinity:
+        ...
+```
+Apply with `kubectl apply -f <name-of-manifest-file>.yaml`.
+
+
+
+
+
