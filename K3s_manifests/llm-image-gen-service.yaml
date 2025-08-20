@@ -12,6 +12,7 @@ spec:
       labels:
         app: llm-image-gen-service
     spec:
+      runtimeClassName: nvidia
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
