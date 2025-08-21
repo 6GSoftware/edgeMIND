@@ -232,21 +232,33 @@ sudo kubectl exec -it <POD_NAME> -- /bin/sh
 
 ## FIXING THE K3S GPU ISSUE
 
+Install Helm if you don’t already have it:
+```bash
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
+
 After installing k3s and nvidia-container-toolkit, install the Nvidia device plugin operator:
 ```bash
-helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
 
+helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
 helm repo update
 
 helm upgrade -i nvdp nvdp/nvidia-device-plugin \
-      --version=0.14.5 \
-      --namespace nvidia-device-plugin \
-      --create-namespace \
-      --set gfd.enabled=true \
-      --set runtimeClassName=nvidia
+  --version=0.14.5 \
+  --namespace nvidia-device-plugin \
+  --create-namespace \
+  --set gfd.enabled=true \
+  --set runtimeClassName=nvidia
 ```
 
-You need to authenticate to nvcr.io and get an API key:
+Label your node for GPU workloads:
+```bash
+sudo kubectl label node <NODE_NAME> processor=gpu --overwrite
+```
+
+sudo kubectl label node <NODE_NAME> processor=gpu --overwrite
+
+<!-- You need to authenticate to nvcr.io and get an API key:
 1. Go to this website: https://catalog.ngc.nvidia.com/?filters=&orderBy=weightPopularDESC&query=&page=&pageSize=
 2. Log in → Click on your profile → Setup → API Key.
 3. Generate a new API key. **Copy it (and save it somewhere)!**
@@ -278,7 +290,7 @@ helm upgrade nvdp nvdp/nvidia-device-plugin \
   --set runtimeClassName=nvidia \
   --set imagePullSecrets[0].name=nvidia-secret
 ```
-The last line tells helm to use the secret that you just created.
+The last line tells helm to use the secret that you just created. -->
 
 Create runtimeclass manifest file (example name: `nvidia-runtimeclass.yaml`) and apply it with `kubectl apply -f <name-of-manifest-file>.yaml`:
 ```yaml
@@ -314,8 +326,3 @@ spec:
         ...
 ```
 Apply with `kubectl apply -f <name-of-manifest-file>.yaml`.
-
-
-
-
-
