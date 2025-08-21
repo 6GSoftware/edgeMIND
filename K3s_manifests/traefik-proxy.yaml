@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edgemind-apps-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: edgemind.local    #Define this hostname in the /etc/hosts file!
+    http:
+      paths:
+      - path: /process_query    # For text generation
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-text-gen-service
+            port:
+              number: 80
+      - path: /generate-image   # For image generation
+        pathType: Prefix
+        backend:
+          service:
+            name: llm-image-gen-service
+            port:
+              number: 80
+      #- path: /upload_audio    # For audio file processing
+      #  pathType: Prefix
+      #  backend:
+      #    service:
+      #      name: edgemind-audio-service
+      #      port:
+      #        number: 80
+      #- path: /upload_image    # For image file processing
+      #  pathType: Prefix
+      #  backend:
+      #    service:
+      #      name: edgemind-image-service
+      #      port:
+      #        number: 80
+      #- path: /upload_pdf      # For pdf file processing
+      #  pathType: Prefix
+      #  backend:
+      #    service:
+      #      name: edgemind-pdf-service
+      #      port:
+      #        number: 80

@@ -38,6 +38,6 @@ spec:
   selector:
     app: llm-text-gen-service
   ports:
-  - port: 5000
+  - port: 80
     targetPort: 5000
-    nodePort: 30000
+    #nodePort: 30000

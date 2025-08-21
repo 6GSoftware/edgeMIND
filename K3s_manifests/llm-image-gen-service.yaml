@@ -40,6 +40,6 @@ spec:
   selector:
     app: llm-image-gen-service
   ports:
-  - port: 5001
+  - port: 80
     targetPort: 5001
-    nodePort: 30001
+    #nodePort: 30001
