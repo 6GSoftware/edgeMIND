@@ -52,8 +52,12 @@ PROMPT = PromptTemplate(
 #---------------------------------------------------------------------------------------------------
 
 # Test 3
-pipe = StableDiffusionXLPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
-pipe = pipe.to("cuda")
+#pipe = StableDiffusionXLPipeline.from_pretrained("segmind/SSD-1B", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
+#pipe = pipe.to("cuda")
+
+pipe = StableDiffusionXLPipeline.from_pretrained("segmind/Segmind-Vega", torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
+pipe.to("cuda")
+pipe.enable_sequential_cpu_offload()
 
 @app.route("/generate-image", methods=["POST"])
 def generate_image():
@@ -131,7 +135,8 @@ def generate_image():
             # disable guidance_scale by passing 0
             #image = pipe(prompt=prompt, num_inference_steps=5, guidance_scale=0).images[0]
             # Generate (PIL) image
-            image = pipe(prompt, num_inference_steps=50).images[0]  # NOTE: original num_inference_steps=25
+            neg_prompt = "(worst quality, low quality, 3d, 2d, painting, cartoons, sketch)"
+            image = pipe(prompt, negative_prompt=neg_prompt, num_inference_steps=25).images[0]  # NOTE: original num_inference_steps=25
 
             if image:
                 # Save image to in-memory buffer

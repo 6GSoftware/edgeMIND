@@ -24,7 +24,7 @@ spec:
                 - gpu
       containers:
       - name: llm-image-gen-service
-        image: registry.local:4000/edgemind/llm-image-gen-service
+        image: registry.local:4000/edgemind/llm-image-gen-service-2
         ports:
         - containerPort: 5001
         resources:
