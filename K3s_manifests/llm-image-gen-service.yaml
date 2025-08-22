@@ -36,7 +36,7 @@ kind: Service
 metadata:
   name: llm-image-gen-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: llm-image-gen-service
   ports:

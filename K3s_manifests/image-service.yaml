@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: edgemind-image-service
+  name: image-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: edgemind-image-service
+      app: image-service
   template:
     metadata:
       labels:
-        app: edgemind-image-service
+        app: image-service
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchLabels:
-                app: edgemind-image-service
+                app: image-service
             topologyKey: "kubernetes.io/hostname"
       #nodeSelector:
       #  <KEY>: <VALUE>  # Here put any label + its value you have given to any node(s)
       containers:
-      - name: edgemind-image-service
+      - name: image-service
         image: registry.local:4000/edgemind/image-service:latest
         ports:
         - containerPort: 5002
@@ -30,12 +30,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: edgemind-image-service
+  name: image-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: edgemind-image-service
+    app: image-service
   ports:
-  - port: 5002
+  - port: 80
     targetPort: 5002
-    nodePort: 30012

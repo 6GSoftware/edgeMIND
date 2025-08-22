@@ -23,24 +23,24 @@ spec:
             name: llm-image-gen-service
             port:
               number: 80
-      #- path: /upload_audio    # For audio file processing
-      #  pathType: Prefix
-      #  backend:
-      #    service:
-      #      name: edgemind-audio-service
-      #      port:
-      #        number: 80
-      #- path: /upload_image    # For image file processing
-      #  pathType: Prefix
-      #  backend:
-      #    service:
-      #      name: edgemind-image-service
-      #      port:
-      #        number: 80
-      #- path: /upload_pdf      # For pdf file processing
-      #  pathType: Prefix
-      #  backend:
-      #    service:
-      #      name: edgemind-pdf-service
-      #      port:
-      #        number: 80
+      - path: /upload_audio    # For audio file processing
+        pathType: Prefix
+        backend:
+          service:
+            name: audio-service
+            port:
+              number: 80
+      - path: /upload_image    # For image file processing
+        pathType: Prefix
+        backend:
+          service:
+            name: image-service
+            port:
+              number: 80
+      - path: /upload_pdf      # For pdf file processing
+        pathType: Prefix
+        backend:
+          service:
+            name: pdf-service
+            port:
+              number: 80

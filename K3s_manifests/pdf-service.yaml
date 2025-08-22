@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: edgemind-pdf-service
+  name: pdf-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: edgemind-pdf-service
+      app: pdf-service
   template:
     metadata:
       labels:
-        app: edgemind-pdf-service
+        app: pdf-service
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchLabels:
-                app: edgemind-pdf-service
+                app: pdf-service
             topologyKey: "kubernetes.io/hostname"
       #nodeSelector:
       #  <KEY>: <VALUE>  # Here put any label + its value you have given to any node(s)
       containers:
-      - name: edgemind-pdf-service
+      - name: pdf-service
         image: registry.local:4000/edgemind/pdf-service:latest
         ports:
         - containerPort: 5004
@@ -33,12 +33,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: edgemind-pdf-service
+  name: pdf-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: edgemind-pdf-service
+    app: pdf-service
   ports:
-  - port: 5004
+  - port: 80
     targetPort: 5004
-    nodePort: 30014

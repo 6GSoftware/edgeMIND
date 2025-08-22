@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: edgemind-audio-service
+  name: audio-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: edgemind-audio-service
+      app: audio-service
   template:
     metadata:
       labels:
-        app: edgemind-audio-service
+        app: audio-service
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchLabels:
-                app: edgemind-audio-service
+                app: audio-service
             topologyKey: "kubernetes.io/hostname"
       #nodeSelector:
       #  <KEY>: <VALUE>  # Here put any label + its value you have given to any node(s)
       containers:
-      - name: edgemind-audio-service
+      - name: audio-service
         image: registry.local:4000/edgemind/audio-service:latest
         ports:
         - containerPort: 5003
@@ -30,12 +30,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: edgemind-audio-service
+  name: audio-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: edgemind-audio-service
+    app: audio-service
   ports:
-  - port: 5003
+  - port: 80
     targetPort: 5003
-    nodePort: 30013

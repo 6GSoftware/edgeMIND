@@ -34,7 +34,7 @@ kind: Service
 metadata:
   name: llm-text-gen-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: llm-text-gen-service
   ports:
