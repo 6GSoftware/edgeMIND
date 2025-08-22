@@ -144,7 +144,7 @@ def upload_file():
 def send_to_extracted_text_processing(processed_file_content):
     try:
         # url = "http://situational_awareness_server:6501/process_extracted_texts" # For setup before K3s
-        url = "http://edgemind-situational-awareness-server:6501/process_extracted_texts" # For K3s setup
+        url = "http://situational-awareness:6501/process_extracted_texts" # For K3s setup
 
         payload = {"data": processed_file_content}
 
