@@ -8,6 +8,7 @@ How this module works:
   situational awareness module for topic classification and vectorization.
 """
 
+import os
 import socket
 import time
 import nltk
@@ -32,6 +33,11 @@ TAG = "extracted_text_processing:  "
 MONITOR_URL = "http://host.docker.internal:5006/status"
 
 output_file_path = './Pre_processed_text.txt'
+
+# ensure metadata file exists (create empty if not)
+if not os.path.exists(output_file_path):
+    with open(output_file_path, 'w', encoding='utf-8') as f:
+        pass
 
 try:
     nltk.data.find('tokenizers/punkt')

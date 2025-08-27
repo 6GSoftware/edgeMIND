@@ -24,6 +24,8 @@ TAG = "audio_processing:  "
 # Folder with audio files
 audio_folder = './Audio'
 
+os.makedirs(audio_folder, exist_ok=True)
+
 # Step 1: Initialize Whisper model for transcription
 #model_whisper = whisper.load_model("base")
 #model_whisper = whisper.load_model("tiny", device="cuda") # gpu

@@ -15,6 +15,17 @@ app = Flask(__name__)
 index_file_path = 'multimodal_faiss_index.index'
 metadata_file_path = 'topic_metadata_with_names.txt'
 
+# ensure metadata file exists (create empty if not)
+if not os.path.exists(metadata_file_path):
+    with open(metadata_file_path, 'w', encoding='utf-8') as f:
+        pass
+
+# ensure index file exists (create empty index if not)
+if not os.path.exists(index_file_path):
+    default_dim = 768
+    empty_index = faiss.IndexFlatL2(default_dim)
+    faiss.write_index(empty_index, index_file_path)
+
 DB_SERVER_IP = "0.0.0.0"
 DB_SERVER_PORT = 8000
 

@@ -15,6 +15,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import requests
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,6 +28,10 @@ VECTOR_DB_URL = "http://vector-db-server:8000/store"
 MONITOR_URL = "http://host.docker.internal:5006/status"
 
 file_path = './Pre_processed_text.txt'
+
+# Ensure file exists
+if not os.path.exists(file_path):
+    open(file_path, 'w').close()
 
 # Initialize the embedding model
 embedding_function = SentenceTransformer('all-mpnet-base-v2')

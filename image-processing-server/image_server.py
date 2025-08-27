@@ -1,17 +1,16 @@
 from flask import Flask, request
 import os
-import threading
+import threading 
 import socket
 import time
 import logging
 import requests
-import multiprocessing as mp
-
-logging.basicConfig(level=logging.INFO)
-
-app = Flask(__name__)
+from queue import Queue
 
 from image_processing import process_image_files
+
+logging.basicConfig(level=logging.INFO)
+app = Flask(__name__)
 
 # HOST = "situational_awareness_server" # For setup before K3s
 HOST = "edgemind-situational-awareness-server" # For K3s setup
@@ -24,8 +23,21 @@ BASE_DIRECTORY = "./"
 IMAGE_DIRECTORY = os.path.join(BASE_DIRECTORY, "Pictures/")
 os.makedirs(IMAGE_DIRECTORY, exist_ok=True)
 
-app = Flask(__name__)
+job_queue = Queue()
 
+def worker():
+    """Sequentially process jobs from the queue using process_file()."""
+    while True:
+        file_name = job_queue.get()
+        try:
+            process_file(file_name=file_name)
+        except Exception as e:
+            logging.error(f"{TAG} Error processing {file_name}: {e}")
+        finally:
+            job_queue.task_done()
+
+
+threading.Thread(target=worker, daemon=True).start()
 
 def process_file(**kwargs):
     file_name = kwargs.get('file_name')
@@ -62,11 +74,7 @@ def process_file(**kwargs):
     logging.info(f"{TAG} Text tokenized, embeddings created and saved to appropriate file")
 
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
-    
-    # Process step 4:
-    #vectorize_and_save_to_vector_db()
-    #logging.info(f"{TAG} The texts have been vectorized and saved to the faiss index")
-    
+
     logging.info(f"{TAG} Process complete!\n")
 
 
@@ -92,20 +100,6 @@ def save_file(file_name, file):
 
 @app.route('/upload_image', methods=['POST'])
 def upload_file():
-    """Handle http POST request from the client and receive a file."""
-
-    '''start_time = time.time()
-    logging.info("\nSTART TIME: " + str(start_time) + "\n")
-
-    try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "start",
-            "service-name": "edgemind-image-service"
-        })
-        logging.info("Started monitoring:", res.json())
-    except Exception as e:
-        logging.info("Failed to start monitoring:", e)'''
-
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
 
@@ -118,10 +112,14 @@ def upload_file():
     # Save the uploaded file
     response_message = save_file(file_name, file)
 
+    job_queue.put(file_name)
+
+    logging.info(f"{TAG} Queued {file_name} for processing")
+
     # Process the file in another thread
-    thread = threading.Thread(target=process_file, kwargs={
-                    'file_name': file_name})
-    thread.start()
+    # thread = threading.Thread(target=process_file, kwargs={
+    #                 'file_name': file_name})
+    # thread.start()
 
     # Send a response message to the mobile app
     return {'message': response_message}, 200
@@ -159,9 +157,14 @@ def send_to_extracted_text_processing(processed_file_content):
         logging.error(f"{TAG} Connection failed: {e}")
 
 
-#if __name__ == "__main__":
+# if __name__ == "__main__":
 #    mp.set_start_method("spawn", force=True)
 #    app.run(host="0.0.0.0", port=5002)
+
+if __name__ == "__main__":
+    import torch.multiprocessing as mp
+    mp.set_start_method("spawn", force=True)
+    app.run(host="0.0.0.0", port=5002)
 
 #if __name__ == '__main__':
 #    app.run(host="0.0.0.0", port=5002, threaded=True)

@@ -12,6 +12,7 @@ spec:
       labels:
         app: image-service
     spec:
+      runtimeClassName: nvidia # Remove if you only use cpu
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -19,13 +20,23 @@ spec:
               matchLabels:
                 app: image-service
             topologyKey: "kubernetes.io/hostname"
-      #nodeSelector:
-      #  <KEY>: <VALUE>  # Here put any label + its value you have given to any node(s)
+
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: nvidia.com/gpu
+                operator: Exists
+
       containers:
       - name: image-service
         image: registry.local:4000/edgemind/image-service:latest
         ports:
         - containerPort: 5002
+        resources:  # Remove if you only use cpu
+          limits: # Remove if you only use cpu
+            nvidia.com/gpu: 1 # Remove if you only use cpu
 ---
 apiVersion: v1
 kind: Service

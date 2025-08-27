@@ -26,6 +26,8 @@ else:
 model = AutoModelForCausalLM.from_pretrained(
     model_source,
     device_map="cpu",
+    # device_map="auto",
+    # device_map={"": "cuda:0"},
     trust_remote_code=True,
     torch_dtype="auto",
     _attn_implementation='eager'

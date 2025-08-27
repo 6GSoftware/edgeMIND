@@ -27,7 +27,9 @@ from download_phi_3_5_vision import model, processor
 TAG = "image_processing:  "
 
 # Define the folder containing images and the output text file
-image_folder = r'./Pictures'
+image_folder = './Pictures'
+
+os.makedirs(image_folder, exist_ok=True)
 
 combined_text_file = './emultimodal_extracted_data.txt'
 

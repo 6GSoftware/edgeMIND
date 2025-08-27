@@ -6,6 +6,8 @@ import time
 
 IMAGE_DIR = "./Pictures"
 
+os.makedirs(IMAGE_DIR, exist_ok=True)
+
 DAYS_OLD = 1    #TODO: put here 10, after testing and debugging
 SLEEP_INTERVAL = 86400
 

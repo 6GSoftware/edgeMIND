@@ -23,6 +23,8 @@ TAG = "pdf_processing:  "
 # Set the folder path for the PDF files
 pdf_folder = "./pdfs"
 
+os.makedirs(pdf_folder, exist_ok=True)
+
 combined_text_file = './emultimodal_extracted_data.txt'
 
 LLAMAPARSE_API_KEY = os.environ.get("LLAMAPARSE_API_KEY", None)

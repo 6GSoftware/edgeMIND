@@ -87,7 +87,7 @@ If you haven't already built the images, do it now.
 
 After that, pull and run the registry container:
 ```bash
-docker run -d -p 4000:5000 --name registry registry:2
+sudo docker run -d -p 4000:5000 --name registry registry:2
 ```
 
 Here we map port 4000 to port 5000, because the registry uses by default port 5000, but we already use port 5000 in the EdgeMIND framework, so we need to use some other port (here 4000).
@@ -255,8 +255,6 @@ Label your node for GPU workloads:
 ```bash
 sudo kubectl label node <NODE_NAME> processor=gpu --overwrite
 ```
-
-sudo kubectl label node <NODE_NAME> processor=gpu --overwrite
 
 <!-- You need to authenticate to nvcr.io and get an API key:
 1. Go to this website: https://catalog.ngc.nvidia.com/?filters=&orderBy=weightPopularDESC&query=&page=&pageSize=
