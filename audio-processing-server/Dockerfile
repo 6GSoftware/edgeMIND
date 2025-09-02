@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y git ffmpeg && \
     pip install --no-cache-dir -r requirements.txt && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+#COPY . .
 #RUN chmod +x start.sh
 
 #ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
