@@ -19,7 +19,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 TAG = "situational_awareness_faiss:  "
-VECTOR_DB_URL = "http://vector_db_server:8000/store"
+
+#VECTOR_DB_URL = "http://vector_db_server:8000/store"
+VECTOR_DB_URL = "http://127.0.0.1:8000/store"
+
 VECTOR_DB_STORE_TO_TEMP_URL = "http://vector_db_server:8000/store-to-tmp"
 
 file_path = './Pre_processed_text.txt'
@@ -30,7 +33,7 @@ embedding_function = SentenceTransformer('all-mpnet-base-v2')
 #----------------------------------------------------------------------------------------------------------------------------
 
 
-def send_llm_result_to_temp_database(llm_result):
+def send_llm_result_to_temp_database(llm_result, file_type):
     """
     Generate embeddings for the llm generated result string and send the embeddings to the vector database.
     """
@@ -48,14 +51,20 @@ def send_llm_result_to_temp_database(llm_result):
 
 
 
-def send_new_data_to_database(documents):
+def send_new_data_to_database(documents, file_type):
     # Split the new data into chunks
     chunks = get_chunks(documents)
 
     metadata = do_topic_modeling(chunks)
     
     try:
-        response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
+        response = requests.post(
+        VECTOR_DB_URL,
+        json={
+            "metadata": metadata,
+            "file_type": file_type
+        }
+    )
         response.raise_for_status()
         logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
     except requests.RequestException as e:
@@ -100,8 +109,8 @@ def do_topic_modeling(data):
     for idx, score in enumerate(best_topic_scores):
         if score > threshold:
             topic_name = initial_topic_names[best_topic_indices[idx]]
-            #fitting_chunks.append((chunks[idx], topic_name))
-            outliners.append(data[idx])
+            fitting_chunks.append((data[idx], topic_name))
+            #outliners.append(data[idx])
         else:
             outliners.append(data[idx])
 

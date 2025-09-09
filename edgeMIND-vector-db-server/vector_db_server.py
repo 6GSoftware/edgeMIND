@@ -6,12 +6,11 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
 
+logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-DB_SERVER_IP = "0.0.0.0"
-DB_SERVER_PORT = 8000
 
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
@@ -53,7 +52,14 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     return results
 
 
-def store_data(metadata, metadata_file_path, index_file_path):
+def store_data(metadata, metadata_file_path, index_file_path, file_type=None):
+
+    if file_type == "image":
+        new_image_id = get_next_image_id(metadata_file_path)
+        for entry in metadata:
+            entry["image_id"] = new_image_id
+        logging.info(f"Assigned image_id={new_image_id} to {len(metadata)} entries")
+
     embeddings = np.array([np.array(entry["embedding"], dtype='float32') for entry in metadata])
 
     with open(metadata_file_path, 'a') as f:
@@ -76,7 +82,6 @@ def store_data(metadata, metadata_file_path, index_file_path):
     return msg
 
 
-
 @app.route('/store-to-tmp', methods=['POST'])
 def store_to_tmp():
     temp_index_file_path = 'temp_faiss_index.index'
@@ -85,12 +90,36 @@ def store_to_tmp():
     try:
         data = request.json
         metadata = data["metadata"]
-        msg = store_data(metadata, temp_metadata_file_path, temp_index_file_path)
+        file_type = data.get("file_type")
+
+        new_image_id = None
+        for entry in metadata:
+            if file_type == "image":
+                # Only generate once per batch of image entries
+                if new_image_id is None:
+                    new_image_id = get_next_image_id(temp_metadata_file_path)
+                entry["image_id"] = new_image_id 
+
+        msg = store_data(metadata, temp_metadata_file_path, temp_index_file_path, file_type)
 
         return jsonify({"status": "success", "message": msg})
     
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+
+def get_next_image_id(metadata_file_path: str) -> int:
+    max_id = 0
+    if os.path.exists(metadata_file_path):
+        with open(metadata_file_path, 'r') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    if "image_id" in entry and isinstance(entry["image_id"], int):
+                        max_id = max(max_id, entry["image_id"])
+                except json.JSONDecodeError:
+                    continue
+    return max_id + 1
 
 
 
@@ -102,7 +131,8 @@ def store_to_db():
     try:
         data = request.json
         metadata = data["metadata"]
-        msg = store_data(metadata, main_metadata_file_path, main_index_file_path)
+        file_type = data.get("file_type")
+        msg = store_data(metadata, main_metadata_file_path, main_index_file_path, file_type)
         
         return jsonify({"status": "success", "message": msg})
 
@@ -111,10 +141,47 @@ def store_to_db():
     
 
 
+# @app.route('/search', methods=['POST'])
+# def search_database():
+#     main_index_file_path = 'multimodal_faiss_index.index'
+#     main_metadata_file_path = 'topic_metadata_with_names.txt'
+
+#     try:
+#         request_data = request.get_json()
+#         question = request_data['question']
+#         logging.info(f"Received: {question}")
+
+#         #results = f"Your question was: {question}"
+
+#         # Load faiss index, metadata and embedding function every time a new client is connected
+#         index = load_faiss_index(main_index_file_path)
+#         metadata = load_metadata(main_metadata_file_path)
+#         #embedding_function = load_embedding_function()
+
+#         results = search_faiss_index(question, index, metadata, embedding_function)
+#         logging.info("Result from searching the faiss index:\n", results)
+
+#         #result_list = [result['text'] for result in results]
+#         #result_string = str(result_list)
+#         #logging.info(f"The result as a string: {result_string}\n")
+
+#         result_as_json = json.dumps(str(results))
+#         #result_as_json = json.dumps(result_string)
+
+#         return jsonify({"status": "success", "message": result_as_json})
+
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
 @app.route('/search', methods=['POST'])
 def search_database():
     main_index_file_path = 'multimodal_faiss_index.index'
     main_metadata_file_path = 'topic_metadata_with_names.txt'
+
+
 
     try:
         request_data = request.get_json()
@@ -123,13 +190,23 @@ def search_database():
 
         #results = f"Your question was: {question}"
 
+
+        
+
         # Load faiss index, metadata and embedding function every time a new client is connected
         index = load_faiss_index(main_index_file_path)
+
+
+
         metadata = load_metadata(main_metadata_file_path)
         #embedding_function = load_embedding_function()
 
+
+
         results = search_faiss_index(question, index, metadata, embedding_function)
-        logging.info("Result from searching the faiss index:\n", results)
+
+
+        logging.info(f"Result from searching the faiss index: {results}")
 
         #result_list = [result['text'] for result in results]
         #result_string = str(result_list)
@@ -142,3 +219,37 @@ def search_database():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+@app.route('/search_latest_image', methods=['POST'])
+def search_latest_image():
+    metadata_file_path = 'topic_metadata_with_names.txt'
+
+    if not os.path.exists(metadata_file_path):
+        return jsonify({"status": "error", "message": "No metadata file"}), 404
+
+    with open(metadata_file_path, 'r', encoding='utf-8') as f:
+        metadata = [json.loads(line.strip()) for line in f if line.strip()]
+
+    # Find the largest image_id
+    max_image_id = max(
+        (entry.get("image_id", -1) for entry in metadata if "image_id" in entry),
+        default=-1
+    )
+    if max_image_id == -1:
+        return jsonify({"status": "error", "message": "No image_id found"}), 404
+
+    latest_chunks = [entry for entry in metadata if entry.get("image_id") == max_image_id]
+
+    # Convert chunks into a string
+    message = "\n".join(entry["text"] for entry in latest_chunks)
+
+    return jsonify({
+        "status": "ok",
+        "message": message
+    })
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)

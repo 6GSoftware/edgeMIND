@@ -34,14 +34,14 @@ def process_file(**kwargs):
     processed_file_content = process_image_files(file_name)
     
     # Example data for debugging
-#    processed_file_content = """Response for picture1234.jpg:
-#- The image shows a hand holding a white mug with a black floral pattern.
-#- The mug has a handle on the right side.
-#- The background is a plain, light-colored wall.
-#- There is a shadow cast by the mug on the wall.
-#- The hand appears to be that of an adult.
-#- The mug is being held in a way that suggests it is being presented or shown off.
-#- There are no other objects or people visible in the image."""
+#     processed_file_content = """Response for picture1234.jpg:
+# - The image shows a hand holding a white mug with a black floral pattern.
+# - The mug has a handle on the right side.
+# - The background is a plain, light-colored wall.
+# - There is a shadow cast by the mug on the wall.
+# - The hand appears to be that of an adult.
+# - The mug is being held in a way that suggests it is being presented or shown off.
+# - There are no other objects or people visible in the image."""
 
     '''try:
         res = requests.post(MONITOR_URL, json={
@@ -142,9 +142,11 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-        url = "http://situational_awareness_server:6501/process_extracted_texts"
+        # url = "http://situational_awareness_server:6501/process_extracted_texts"
+        url = "http://127.0.0.1:6501/process_extracted_texts"
 
-        payload = {"data": processed_file_content}
+        payload = {"data": processed_file_content,
+                   "file_type": "image",}
 
         response = requests.post(url, json=payload)
 
@@ -163,3 +165,6 @@ def send_to_extracted_text_processing(processed_file_content):
 
 #if __name__ == '__main__':
 #    app.run(host="0.0.0.0", port=5002, threaded=True)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5002, debug=True)

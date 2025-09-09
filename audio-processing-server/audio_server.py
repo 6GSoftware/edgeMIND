@@ -102,7 +102,8 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-        url = "http://situational_awareness_server:6501/process_extracted_texts"
+        # url = "http://situational_awareness_server:6501/process_extracted_texts"
+        url = "http://127.0.0.1:6501/process_extracted_texts"
 
         payload = {"data": processed_file_content}
 

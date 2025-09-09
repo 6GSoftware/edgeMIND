@@ -99,8 +99,9 @@ def handle_LLM_generated_response():
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
     try:
-        # Extract data from the HTTP request
-        processed_file_contents = request.get_json().get("data", "")
+        req_json = request.get_json()
+        processed_file_contents = req_json.get("data", "")
+        file_type = req_json.get("file_type", "text")
 
         if not processed_file_contents:
             logging.info(f"{TAG} No data received.")
@@ -114,10 +115,13 @@ def handle_extracted_texts():
 
         send_new_data_to_database([
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
-        ])
+        ], file_type)
 
         return jsonify({"status": "success", "message": "Data processed"})
 
     except Exception as e:
         logging.error(f"{TAG} Error while processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=6501, debug=True)

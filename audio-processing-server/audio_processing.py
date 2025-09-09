@@ -34,8 +34,8 @@ model_whisper = None
 
 def init_model():
     global model_whisper
-    model_whisper = whisper.load_model("base")
-    #model_whisper = whisper.load_model("tiny", device="cuda") # gpu
+    # model_whisper = whisper.load_model("base")
+    model_whisper = whisper.load_model("small", device="cuda") # gpu
     (f"{TAG} Whisper model loaded successfully.")
 
 

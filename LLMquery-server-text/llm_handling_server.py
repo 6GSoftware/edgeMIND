@@ -31,19 +31,24 @@ def health():
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
-VECTOR_DB_URL = "http://vector_db_server:8000/search"
+# VECTOR_DB_URL = "http://vector_db_server:8000/search"
+VECTOR_DB_URL = "http://127.0.0.1:8000/search"
+
+# VECTOR_DB_URL2 = "http://vector_db_server:8000/search_latest_image"
+VECTOR_DB_URL2 = "http://127.0.0.1:8000/search_latest_image"
+
 INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_generated_response"
 
 model_path = "./saved_LLM_model"
-model = AutoModelForCausalLM.from_pretrained(model_path)
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
-generation_args = {
-    "max_new_tokens": 500,
-    "return_full_text": False,
-    "temperature": 0.5,
-    "do_sample": True,
-}
+# model = AutoModelForCausalLM.from_pretrained(model_path)
+# tokenizer = AutoTokenizer.from_pretrained(model_path)
+# pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+# generation_args = {
+#     "max_new_tokens": 500,
+#     "return_full_text": False,
+#     "temperature": 0.5,
+#     "do_sample": True,
+# }
 
 # Define the prompt template for the assistant
 prompt_template = """
@@ -78,7 +83,58 @@ Question: {question}
 PROMPT = PromptTemplate(
     template=prompt_template,
     input_variables=["context", "question"]
+)
+
+
+
+
+
+
+
+
+prompt_template2 = """
+<|system|>
+ 
+You are an expert assistant that answers to the user query.
+ 
+You are given some extracted parts relevant to the user query.
+ 
+If you don't know the answer, just say "I don't know." Don't try to make up an answer.
+ 
+It is very important that you ALWAYS answer the question in the same language the question is in. Remember to always do that.
+ 
+Use only the following pieces of context to answer the question at the end.
+ 
+<|end|>
+ 
+<|user|>
+ 
+Context: {context}
+ 
+Question is below. Remember to answer in the same language:
+ 
+Question: {question}
+ 
+<|end|>
+ 
+<|assistant|>
+"""
+ 
+# Initialize the prompt with template
+PROMPT2 = PromptTemplate(
+    template=prompt_template2,
+    input_variables=["context", "question"]
 ) 
+
+
+
+
+
+
+
+
+
+
 
 
 def clean_text(text):
@@ -138,6 +194,71 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
     return final_generated_text
 
 
+
+
+
+@app.route('/question_about_picture', methods=['POST'])
+def question_about_picture():
+    try:
+        user_question = request.json.get('question', '')
+        if not user_question:
+            return jsonify({'status': 'error', 'message': 'No question provided'}), 400
+
+        logging.info(f"Received question: {user_question}")
+        now = datetime.now()
+        logging.info(now)
+
+        # Data to be sent
+        post_data = {
+            'question': user_question
+        }
+
+        # Defining content type for the payload
+        headers = {'Content-type': 'application/json'}
+        # Post the user question to the vector database server and get the query result as response
+        response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+
+        logging.info(f"Raw response: {response.text}")
+
+        response_as_json = response.json()
+        #db_result = response_as_json['message']
+        logging.info(f"response from db server: {response_as_json}")
+
+        #if response_as_json['status'] == 'error':
+        if response_as_json['status'] == 'error':
+            response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
+            return jsonify({'status': 'error', 'message': response_to_user}), 500
+
+        db_result = response_as_json['message']
+
+        # return jsonify({'status': 'ok'})
+    
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    # -------------
+
+    try:
+        response2 = requests.post(VECTOR_DB_URL2)
+        latest_img_resp = response2.json()
+        logging.info((response2.json()))
+
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    return jsonify({
+        'status': 'ok',
+        'question': user_question,
+        'db_result': db_result,
+        'latest_image': latest_img_resp
+    })
+
+
+
+
+
 @app.route('/process_query', methods=['POST'])
 def process_query():
     try:
@@ -158,6 +279,9 @@ def process_query():
         headers = {'Content-type': 'application/json'}
         # Post the user question to the vector database server and get the query result as response
         response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+
+        logging.info(f"Raw response: {response.text}")
+
         response_as_json = response.json()
         #db_result = response_as_json['message']
         logging.info(f"response from db server: {response_as_json}")
@@ -168,6 +292,8 @@ def process_query():
             return jsonify({'status': 'error', 'message': response_to_user}), 500
 
         db_result = response_as_json['message']
+
+        return jsonify({'status': 'ok'})
 
         # Query the llm
         llm_result = query_llm(generation_args, pipe, db_result, user_question)
@@ -195,4 +321,7 @@ def process_query():
 #if __name__ == '__main__':
 #    socket_thread = threading.Thread(target=start_server, daemon=True)
 #    socket_thread.start()
-#    app.run(host='0.0.0.0', port=6000)
+#    app.run(host='0.0.0.0', port=5000)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
