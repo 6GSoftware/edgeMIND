@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify
-from datetime import datetime
 import faiss
 import json
 import logging
@@ -10,9 +9,6 @@ import os
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-index_file_path = 'multimodal_faiss_index.index'
-metadata_file_path = 'topic_metadata_with_names.txt'
 
 DB_SERVER_IP = "0.0.0.0"
 DB_SERVER_PORT = 8000
@@ -57,39 +53,69 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     return results
 
 
-@app.route('/store', methods=['POST'])
-def store_data():
+def store_data(metadata, metadata_file_path, index_file_path):
+    embeddings = np.array([np.array(entry["embedding"], dtype='float32') for entry in metadata])
+
+    with open(metadata_file_path, 'a') as f:
+        for entry in metadata:
+            f.write(json.dumps(entry) + '\n')
+
+    if os.path.exists(index_file_path):
+        index = load_faiss_index(index_file_path)
+    else:
+        dimension = embeddings[0].shape[0]
+        index = faiss.IndexFlatL2(dimension)
+
+    index.add(embeddings)
+    faiss.write_index(index, index_file_path)
+    logging.info("Wrote new data to faiss index!")
+
+    msg = "Data stored successfully."
+    logging.info(msg)
+
+    return msg
+
+
+
+@app.route('/store-to-tmp', methods=['POST'])
+def store_to_tmp():
+    temp_index_file_path = 'temp_faiss_index.index'
+    temp_metadata_file_path = 'temp_metadata.txt'
+
     try:
         data = request.json
         metadata = data["metadata"]
+        msg = store_data(metadata, temp_metadata_file_path, temp_index_file_path)
 
-        embeddings = np.array([np.array(entry["embedding"], dtype='float32') for entry in metadata])
-
-        with open(metadata_file_path, 'a') as f:
-            for entry in metadata:
-                f.write(json.dumps(entry) + '\n')
-
-        if os.path.exists(index_file_path):
-            index = load_faiss_index(index_file_path)
-        else:
-            dimension = embeddings[0].shape[0]
-            index = faiss.IndexFlatL2(dimension)
-
-        index.add(embeddings)
-        faiss.write_index(index, index_file_path)
-        logging.info("Wrote new data to faiss index!")
+        return jsonify({"status": "success", "message": msg})
+    
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
-        msg = "Data stored successfully."
-        logging.info(msg)
+
+@app.route('/store', methods=['POST'])
+def store_to_db():
+    main_index_file_path = 'multimodal_faiss_index.index'
+    main_metadata_file_path = 'topic_metadata_with_names.txt'
+
+    try:
+        data = request.json
+        metadata = data["metadata"]
+        msg = store_data(metadata, main_metadata_file_path, main_index_file_path)
+        
         return jsonify({"status": "success", "message": msg})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     
 
+
 @app.route('/search', methods=['POST'])
 def search_database():
+    main_index_file_path = 'multimodal_faiss_index.index'
+    main_metadata_file_path = 'topic_metadata_with_names.txt'
+
     try:
         request_data = request.get_json()
         question = request_data['question']
@@ -98,8 +124,8 @@ def search_database():
         #results = f"Your question was: {question}"
 
         # Load faiss index, metadata and embedding function every time a new client is connected
-        index = load_faiss_index(index_file_path)
-        metadata = load_metadata(metadata_file_path)
+        index = load_faiss_index(main_index_file_path)
+        metadata = load_metadata(main_metadata_file_path)
         #embedding_function = load_embedding_function()
 
         results = search_faiss_index(question, index, metadata, embedding_function)
@@ -116,7 +142,3 @@ def search_database():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    
-
-#if __name__ == '__main__':
-#    app.run(host=DB_SERVER_IP, port=DB_SERVER_PORT)

@@ -1,16 +1,11 @@
 # Unnecessary files and directories
 __pycache__
-Audio
-/check-these/
-/Chome/
 /LLMquery-server-text/testing/
 /edgeMIND-vector-db-server/__pycache__/
 /edgeMIND-vector-db-server/vector_db_server__http.py
 /extracted_data/
 /model/
-/pdfs/
 Phi-3.5-vision
-Pictures
 
 # Virtual environment(s)
 /env/
@@ -26,6 +21,9 @@ Pictures
 
 /edgeMIND-vector-db-server/multimodal_faiss_index_2.index
 /edgeMIND-vector-db-server/topic_metadata_with_names_2.txt
+
+temp_faiss_index.index
+temp_metadata.txt
 
 # Files containing environment variabes
 /LLMquery-server-text/.env
@@ -58,13 +56,19 @@ workflow_documentation.md
 /testing
 requirements_test.txt
 /2pdf-processing-server
-*.csv
 anskun filut
 ä
 data_files_for_reset
 locustfile.py
 /traefik
-*.zip
 
-# Image files used in testing
-/LLMquery-server-audio/*.png
+# Files that include important or temporary data
+*.png
+*.zip
+*.csv
+ä-aluperäset
+ä-oikeet-testeihin
+Audio
+pdfs
+Pictures
+RU_test_result_files

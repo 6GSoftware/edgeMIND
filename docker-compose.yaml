@@ -12,29 +12,29 @@ services:
     volumes:
       - ./LLMquery-server-text:/app
 
-  llm_query_server_audio:
-    build: 
-      context: ./LLMquery-server-audio
-    networks:
-      - edgemind_network
-    ports:
-      - "5001:5001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      #- "vector_db_server:xx"    # NOTE: de-centralized, add IP
-    volumes:
-      - ./LLMquery-server-audio:/app
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-    runtime: nvidia
+#  llm_query_server_audio:
+#    build: 
+#      context: ./LLMquery-server-audio
+#    networks:
+#      - edgemind_network
+#    ports:
+#      - "5001:5001"
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#      #- "vector_db_server:xx"    # NOTE: de-centralized, add IP
+#    volumes:
+#      - ./LLMquery-server-audio:/app
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [gpu]
+#    environment:
+#      - NVIDIA_VISIBLE_DEVICES=all
+#      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+#    runtime: nvidia
 
   vector_db_server:
     build: 

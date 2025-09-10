@@ -20,27 +20,57 @@ logging.basicConfig(level=logging.INFO)
 
 TAG = "situational_awareness_faiss:  "
 VECTOR_DB_URL = "http://vector_db_server:8000/store"
-#VECTOR_DB_URL = "http://localhost:8000/store"      #NOTE use when running outside container
-
-MONITOR_URL = "http://host.docker.internal:5006/status"
+VECTOR_DB_STORE_TO_TEMP_URL = "http://vector_db_server:8000/store-to-tmp"
 
 file_path = './Pre_processed_text.txt'
 
 # Initialize the embedding model
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
+#----------------------------------------------------------------------------------------------------------------------------
+
+
+def send_llm_result_to_temp_database(llm_result):
+    """
+    Generate embeddings for the llm generated result string and send the embeddings to the vector database.
+    """
+    data_for_topic_modeling = [llm_result]
+
+    metadata = do_topic_modeling(data_for_topic_modeling)
+
+    try:
+        response = requests.post(VECTOR_DB_STORE_TO_TEMP_URL, json={"metadata": metadata})
+        response.raise_for_status()
+        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
+    except requests.RequestException as e:
+        logging.info(f"{TAG} Failed to send data: {e}")
+
+
+
 
 def send_new_data_to_database(documents):
+    # Split the new data into chunks
+    chunks = get_chunks(documents)
+
+    metadata = do_topic_modeling(chunks)
+    
+    try:
+        response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
+        response.raise_for_status()
+        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
+    except requests.RequestException as e:
+        logging.info(f"{TAG} Failed to send data: {e}")
+
+
+
+def do_topic_modeling(data):
     """
     Check if the new data matches any existing topics. If not, create new topics for those chunks.
     Finally, forward the processed data to the vector database.
     """
 
-    # Split the new data into chunks
-    chunks = get_chunks(documents)
-
     # Transform new chunks to a document-term matrix with the initial vectorizer
-    X = initial_vectorizer.transform(chunks)
+    X = initial_vectorizer.transform(data)
 
     topic_word = initial_model.topic_word_
 
@@ -71,11 +101,9 @@ def send_new_data_to_database(documents):
         if score > threshold:
             topic_name = initial_topic_names[best_topic_indices[idx]]
             #fitting_chunks.append((chunks[idx], topic_name))
-            outliners.append(chunks[idx])
+            outliners.append(data[idx])
         else:
-            outliners.append(chunks[idx])
-
-
+            outliners.append(data[idx])
 
     if outliners:
         # Vectorizer for outliers
@@ -97,13 +125,13 @@ def send_new_data_to_database(documents):
     timestamp = datetime.now().isoformat()
 
     # Generate embeddings and collect metadata for each chunk
-    embeddings = []
+    #embeddings = []
     for chunk_text, topic_name in all_chunks:
         # Generate embedding for each chunk
         embedding = embedding_function.encode([chunk_text]).astype('float16')[0]
 
         # Collect embeddings and metadata
-        embeddings.append(embedding)  # Store the embedding for FAISS
+        #embeddings.append(embedding)  # Store the embedding for FAISS
 
         # Store the metadata with the topic name
         metadata.append({
@@ -113,21 +141,7 @@ def send_new_data_to_database(documents):
             "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
         })
 
-    '''try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "stop",
-            "service-name": "situational_awareness_server"
-        }, timeout=2)
-        logging.info(f"Started monitoring: {res.json()}")
-    except Exception as e:
-        logging.warning(f"Monitoring service not available: {e}")'''
-
-    try:
-        response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
-        response.raise_for_status()
-        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
-    except requests.RequestException as e:
-        logging.info(f"{TAG} Failed to send data: {e}")
+    return metadata
 
 
 def get_chunks(documents):
