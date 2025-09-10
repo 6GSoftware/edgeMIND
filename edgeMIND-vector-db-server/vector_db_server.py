@@ -45,9 +45,9 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
         result_entry = metadata[idx]
         results.append({
             "text": result_entry["text"],
-            "topic": result_entry["topic"],
+            #"topic": result_entry["topic"],
             "timestamp": result_entry["timestamp"],
-            "distance": distances[0][i]
+            #"distance": distances[0][i]
         })
     
     return results

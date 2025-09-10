@@ -32,7 +32,9 @@ def health():
 torch.random.manual_seed(0)
 
 VECTOR_DB_URL = "http://vector_db_server:8000/search"
-INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_generated_response"
+INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
+
+#loppu = "/process_generated_response"
 
 model_path = "./saved_LLM_model"
 model = AutoModelForCausalLM.from_pretrained(model_path)
@@ -157,17 +159,21 @@ def process_query():
         # Defining content type for the payload
         headers = {'Content-type': 'application/json'}
         # Post the user question to the vector database server and get the query result as response
-        response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+        #response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
+        #response_as_json = response.json()
+        ##db_result = response_as_json['message']
+        #logging.info(f"response from db server: {response_as_json}")
+
+        response = requests.post(INPUT_LAYER_URL, data=json.dumps(post_data, headers=headers))
         response_as_json = response.json()
-        #db_result = response_as_json['message']
-        logging.info(f"response from db server: {response_as_json}")
 
         #if response_as_json['status'] == 'error':
         if response_as_json['status'] == 'error':
-            response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
-            return jsonify({'status': 'error', 'message': response_to_user}), 500
+            logging.info("An error occurred in generating the topic and/or searchin the vector database")
+            return jsonify({'status': 'error', 'message': response_as_json['message']}), 500
 
-        db_result = response_as_json['message']
+        whole_response = response_as_json['message']
+        db_result = whole_response['db_result']
 
         # Query the llm
         llm_result = query_llm(generation_args, pipe, db_result, user_question)
@@ -181,9 +187,9 @@ def process_query():
         input_post_data = {'data': user_question + ' ' + llm_result}
         logging.info(f"Data to be sent to SA: {json.dumps(input_post_data)}")
 
-        input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
-        input_response_as_json = input_response.json()
-        logging.info(f"Received from the input side: {input_response_as_json['status']}, {input_response_as_json['message']}")
+        #input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
+        #input_response_as_json = input_response.json()
+        #logging.info(f"Received from the input side: {input_response_as_json['status']}, {input_response_as_json['message']}")
 
 
         return jsonify({'status': 'ok', 'message': llm_result})

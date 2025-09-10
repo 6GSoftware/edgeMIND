@@ -8,9 +8,12 @@ How this module works:
   situational awareness module for topic classification and vectorization.
 """
 
+import json
 import nltk
 import re
-from situational_awareness_faiss import send_new_data_to_database, send_llm_result_to_temp_database
+
+import requests
+from situational_awareness_faiss import do_topic_modeling, send_new_data_to_database, send_llm_result_to_temp_database
 import logging
 from flask import Flask, request, jsonify
 
@@ -21,6 +24,7 @@ app = Flask(__name__)
 
 HOST = "0.0.0.0"
 TAG = "extracted_text_processing:  "
+VECTOR_DB_URL_SEARCH = "http://vector_db_server:8000/search"
 
 pre_processed_text_file_path = './Pre_processed_text.txt'
 
@@ -58,6 +62,52 @@ def process_extracted_texts(file_content):
 
     return processed_file_content
 
+
+
+@app.route('/process_user_question', methods=['POST'])
+def handle_user_question():
+    try:
+        req_data = request.json
+        question = req_data["question"]
+
+        if not question:
+            logging.info(f"{TAG} No data received.")
+            return jsonify({"status": "error", "message": "No data received"}), 400
+
+        question_str = preprocess_sentence(str(question))
+
+        with open(pre_processed_text_file_path, 'a', encoding='utf-8') as output_file:
+            output_file.write(question_str)
+
+        data_for_topic_modeling = [question_str]
+        metadata = do_topic_modeling(data_for_topic_modeling)
+
+        post_data = {
+            'question': metadata["topic"]
+        }
+        headers = {'Content-type': 'application/json'}
+
+        # Get results from vector database based on the created topic for the user question
+        response = requests.post(VECTOR_DB_URL_SEARCH, data=json.dumps(post_data), headers=headers)
+        response_as_json = response.json()
+        logging.info(f"response from db server: {response_as_json}")
+
+        if response_as_json['status'] == 'error':
+            response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
+            return jsonify({'status': 'error', 'message': response_to_user}), 500
+
+        db_result = response_as_json['message']
+
+        res_as_json = {
+            'db_result': str(db_result),
+            'usr_question_metadata': metadata
+        }
+
+        return jsonify({"status": "success", "message": res_as_json})
+
+    except Exception as e:
+        logging.error(f"{TAG} Error while processing: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/process_generated_response', methods=['POST'])

@@ -125,13 +125,9 @@ def do_topic_modeling(data):
     timestamp = datetime.now().isoformat()
 
     # Generate embeddings and collect metadata for each chunk
-    #embeddings = []
     for chunk_text, topic_name in all_chunks:
-        # Generate embedding for each chunk
-        embedding = embedding_function.encode([chunk_text]).astype('float16')[0]
-
-        # Collect embeddings and metadata
-        #embeddings.append(embedding)  # Store the embedding for FAISS
+        # Generate embedding for each TOPIC!!!
+        embedding = embedding_function.encode([topic_name]).astype('float16')[0]
 
         # Store the metadata with the topic name
         metadata.append({
