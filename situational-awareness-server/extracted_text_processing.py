@@ -82,6 +82,8 @@ def handle_user_question():
         data_for_topic_modeling = [question_str]
         metadata = do_topic_modeling(data_for_topic_modeling)
 
+        logging.info(f"Topic that was created: {metadata["topic"]}\n")
+
         post_data = {
             'question': metadata["topic"]
         }
@@ -90,24 +92,32 @@ def handle_user_question():
         # Get results from vector database based on the created topic for the user question
         response = requests.post(VECTOR_DB_URL_SEARCH, data=json.dumps(post_data), headers=headers)
         response_as_json = response.json()
-        logging.info(f"response from db server: {response_as_json}")
+        logging.info(f"Response from db server: {response_as_json}\n")
 
         if response_as_json['status'] == 'error':
             response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
             return jsonify({'status': 'error', 'message': response_to_user}), 500
 
-        db_result = response_as_json['message']
+        db_result = str(response_as_json['message'])
 
         res_as_json = {
-            'db_result': str(db_result),
-            'usr_question_metadata': metadata
+            "db_result": db_result,
+            "usr_question_metadata": metadata
         }
+
+        logging.info(f"Results from db based on user's question: {db_result}")
+        logging.info(f"Metadata associated to the question:"
+                     + f"\ntimestamp: {str(metadata["timestamp"])}"
+                     + f"\ntopic: {str(metadata["topic"])}"
+                     + f"\ntext: {str(metadata["text"])}"
+                     + f"\nembedding: {str(metadata["embedding"])}")
 
         return jsonify({"status": "success", "message": res_as_json})
 
     except Exception as e:
         logging.error(f"{TAG} Error while processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 @app.route('/process_generated_response', methods=['POST'])

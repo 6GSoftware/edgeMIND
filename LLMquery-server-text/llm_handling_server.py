@@ -31,8 +31,9 @@ def health():
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
-VECTOR_DB_URL = "http://vector_db_server:8000/search"
+VECTOR_DB_URL = "http://vector_db_server:8000"
 INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
+TMP_DB_PATH = "/store-to-tmp"
 
 #loppu = "/process_generated_response"
 
@@ -174,18 +175,33 @@ def process_query():
 
         whole_response = response_as_json['message']
         db_result = whole_response['db_result']
+        metadata = whole_response['usr_question_metadata']
 
         # Query the llm
         llm_result = query_llm(generation_args, pipe, db_result, user_question)
-        #llm_result = f"The result from the database: {result}"
 
-        if llm_result == "":
+        if not llm_result:
             exception_message = "I couldn't find relevant information for your query. Could you provide more details?"
             return jsonify({'status': 'ok', 'message': exception_message})
         
+        text_for_metadata = str(user_question) + " " + llm_result
+        new_metadata = {
+            "timestamp": metadata["timestamp"],
+            "topic": metadata["topic"],  # Store the topic name here
+            "text": text_for_metadata,
+            "embedding": metadata["embedding"]
+        }
+
+        logging.info(f"New metadata is: {str(new_metadata)}")
+
+        # Send the user question + llm result to the temp database
+        response = requests.post(VECTOR_DB_URL + TMP_DB_PATH, json={"metadata": new_metadata})
+        response.raise_for_status()
+        logging.info(f"Data successfully sent to the vector database. Status: {response.status_code}")
+        
         # Send LLM generated result to input processing layer
-        input_post_data = {'data': user_question + ' ' + llm_result}
-        logging.info(f"Data to be sent to SA: {json.dumps(input_post_data)}")
+        #input_post_data = {'data': user_question + ' ' + llm_result}
+        #logging.info(f"Data to be sent to SA: {json.dumps(input_post_data)}")
 
         #input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
         #input_response_as_json = input_response.json()
