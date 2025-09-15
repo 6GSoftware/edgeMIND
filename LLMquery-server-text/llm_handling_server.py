@@ -33,7 +33,6 @@ torch.random.manual_seed(0)
 
 VECTOR_DB_URL = "http://vector_db_server:8000"
 INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
-TMP_DB_PATH = "/store-to-tmp"
 
 #loppu = "/process_generated_response"
 
@@ -165,7 +164,7 @@ def process_query():
         ##db_result = response_as_json['message']
         #logging.info(f"response from db server: {response_as_json}")
 
-        response = requests.post(INPUT_LAYER_URL, data=json.dumps(post_data, headers=headers))
+        response = requests.post(INPUT_LAYER_URL, data=json.dumps(post_data), headers=headers)
         response_as_json = response.json()
 
         #if response_as_json['status'] == 'error':
@@ -194,8 +193,10 @@ def process_query():
 
         logging.info(f"New metadata is: {str(new_metadata)}")
 
+        url = str(VECTOR_DB_URL + "/store_to_tmp")
+
         # Send the user question + llm result to the temp database
-        response = requests.post(VECTOR_DB_URL + TMP_DB_PATH, json={"metadata": new_metadata})
+        response = requests.post(url, json={"metadata": new_metadata})
         response.raise_for_status()
         logging.info(f"Data successfully sent to the vector database. Status: {response.status_code}")
         

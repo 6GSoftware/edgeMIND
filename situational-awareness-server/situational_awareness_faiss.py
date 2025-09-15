@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 TAG = "situational_awareness_faiss:  "
 VECTOR_DB_URL = "http://vector_db_server:8000/store"
-VECTOR_DB_STORE_TO_TEMP_URL = "http://vector_db_server:8000/store-to-tmp"
+#VECTOR_DB_STORE_TO_TEMP_URL = "http://vector_db_server:8000/store-to-tmp"
 
 file_path = './Pre_processed_text.txt'
 
@@ -30,29 +30,14 @@ embedding_function = SentenceTransformer('all-mpnet-base-v2')
 #----------------------------------------------------------------------------------------------------------------------------
 
 
-def send_llm_result_to_temp_database(llm_result):
-    """
-    Generate embeddings for the llm generated result string and send the embeddings to the vector database.
-    """
-    data_for_topic_modeling = [llm_result]
-
-    metadata = do_topic_modeling(data_for_topic_modeling)
-
-    try:
-        response = requests.post(VECTOR_DB_STORE_TO_TEMP_URL, json={"metadata": metadata})
-        response.raise_for_status()
-        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
-    except requests.RequestException as e:
-        logging.info(f"{TAG} Failed to send data: {e}")
-
-
-
 
 def send_new_data_to_database(documents):
     # Split the new data into chunks
     chunks = get_chunks(documents)
 
-    metadata = do_topic_modeling(chunks)
+    #metadata = do_topic_modeling(chunks)
+    all_chunks = create_topics(chunks)
+    metadata = create_metadata_for_text_chunks(all_chunks)
     
     try:
         response = requests.post(VECTOR_DB_URL, json={"metadata": metadata})
@@ -63,10 +48,33 @@ def send_new_data_to_database(documents):
 
 
 
-def do_topic_modeling(data):
+def create_metadata_for_text_chunks(all_chunks):
+    """
+    Create a list that contains all metadata for all the text chunks extracted from the uploaded file.
+    """
+    # Prepare metadata to send to the vector database
+    metadata = []
+    timestamp = datetime.now().isoformat()
+
+    # Generate embeddings and collect metadata for each chunk
+    for chunk_text, topic_name in all_chunks:
+        # Generate embedding for each TOPIC!!!
+        embedding = embedding_function.encode([topic_name]).astype('float16')[0]
+
+        # Store the metadata with the topic name
+        metadata.append({
+            "timestamp": timestamp,
+            "topic": topic_name,  # Store the topic name here
+            "text": chunk_text,
+            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
+        })
+
+    return metadata
+
+
+def create_topics(data):
     """
     Check if the new data matches any existing topics. If not, create new topics for those chunks.
-    Finally, forward the processed data to the vector database.
     """
 
     # Transform new chunks to a document-term matrix with the initial vectorizer
@@ -120,24 +128,7 @@ def do_topic_modeling(data):
     # Combine chunks
     all_chunks = fitting_chunks + outliners
 
-    # Prepare metadata to send to the vector database
-    metadata = []
-    timestamp = datetime.now().isoformat()
-
-    # Generate embeddings and collect metadata for each chunk
-    for chunk_text, topic_name in all_chunks:
-        # Generate embedding for each TOPIC!!!
-        embedding = embedding_function.encode([topic_name]).astype('float16')[0]
-
-        # Store the metadata with the topic name
-        metadata.append({
-            "timestamp": timestamp,
-            "topic": topic_name,  # Store the topic name here
-            "text": chunk_text,
-            "embedding": embedding.tolist()  # Convert numpy array to list for JSON serialization
-        })
-
-    return metadata
+    return all_chunks
 
 
 def get_chunks(documents):

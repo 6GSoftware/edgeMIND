@@ -13,7 +13,7 @@ import nltk
 import re
 
 import requests
-from situational_awareness_faiss import do_topic_modeling, send_new_data_to_database, send_llm_result_to_temp_database
+from situational_awareness_faiss import create_metadata_for_text_chunks, create_topics, send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
 
@@ -80,9 +80,13 @@ def handle_user_question():
             output_file.write(question_str)
 
         data_for_topic_modeling = [question_str]
-        metadata = do_topic_modeling(data_for_topic_modeling)
+        all_chunks = create_topics(data_for_topic_modeling)
+        logging.info(f"chunks: {str(all_chunks)}")
+        metadata = create_metadata_for_text_chunks(all_chunks)
 
-        logging.info(f"Topic that was created: {metadata["topic"]}\n")
+        metadata = metadata.pop()
+
+        logging.info("Topic that was created: " + metadata["topic"] + "\n")
 
         post_data = {
             'question': metadata["topic"]
@@ -106,49 +110,13 @@ def handle_user_question():
         }
 
         logging.info(f"Results from db based on user's question: {db_result}")
-        logging.info(f"Metadata associated to the question:"
-                     + f"\ntimestamp: {str(metadata["timestamp"])}"
-                     + f"\ntopic: {str(metadata["topic"])}"
-                     + f"\ntext: {str(metadata["text"])}"
-                     + f"\nembedding: {str(metadata["embedding"])}")
+        logging.info("Metadata associated to the question:"
+                     + "\ntimestamp: " + str(metadata["timestamp"])
+                     + "\ntopic: " + str(metadata["topic"])
+                     + "\ntext: " + str(metadata["text"])
+                     + "\nembedding: " + str(metadata["embedding"]))
 
         return jsonify({"status": "success", "message": res_as_json})
-
-    except Exception as e:
-        logging.error(f"{TAG} Error while processing: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
-@app.route('/process_generated_response', methods=['POST'])
-def handle_LLM_generated_response():
-    try:
-        req_data = request.json
-        llm_result = req_data["data"]
-
-        if not llm_result:
-            logging.info(f"{TAG} No data received.")
-            return jsonify({"status": "error", "message": "No data received"}), 400
-
-        logging.info(f"Received from llm server\n:{llm_result}\n\n")
-
-        llm_result_str = preprocess_sentence(str(llm_result))
-        llm_result_str = llm_result_str.replace("\n", " ")
-        logging.info("llm_result pre processed: " + llm_result_str)
-
-        # Save embeddings to a .txt file
-        with open(pre_processed_text_file_path, 'a', encoding='utf-8') as output_file:
-            output_file.write(llm_result_str)
-
-        #processed_gen_response_content = process_extracted_texts(llm_result)
-        #logging.info("Pre processed generated response: " + processed_gen_response_content)
-
-        #processed_gen_response_content = processed_gen_response_content.replace("\n", " ")
-        #logging.info("Pre processing round 2 result: " + processed_gen_response_content)
-
-        send_llm_result_to_temp_database(llm_result_str)
-
-        return jsonify({"status": "success", "message": "Data processed"})
 
     except Exception as e:
         logging.error(f"{TAG} Error while processing: {e}")

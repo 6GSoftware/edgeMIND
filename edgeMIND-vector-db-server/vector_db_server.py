@@ -77,15 +77,20 @@ def store_data(metadata, metadata_file_path, index_file_path):
 
 
 
-@app.route('/store-to-tmp', methods=['POST'])
+@app.route('/store_to_tmp', methods=['POST'])
 def store_to_tmp():
     temp_index_file_path = 'temp_faiss_index.index'
     temp_metadata_file_path = 'temp_metadata.txt'
 
+    logging.info("storing data to temporary database...")
+
     try:
         data = request.json
         metadata = data["metadata"]
+        metadata = [metadata]
         msg = store_data(metadata, temp_metadata_file_path, temp_index_file_path)
+
+        logging.info("data successfully stored!")
 
         return jsonify({"status": "success", "message": msg})
     
