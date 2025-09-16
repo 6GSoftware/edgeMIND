@@ -15,6 +15,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import requests
 import logging
+import base64
 
 logging.basicConfig(level=logging.INFO)
 
@@ -69,6 +70,43 @@ def send_new_data_to_database(documents, file_type):
         logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
     except requests.RequestException as e:
         logging.info(f"{TAG} Failed to send data: {e}")
+
+
+
+
+
+
+def user_question(query_text, k=3):
+    global unique_topics, index 
+
+    """
+    Compare a user query to the topic names and return the best matches.
+    """
+
+    if unique_topics is None:
+        raise ValueError("unique_topics must be provided")
+
+    # generate embedding for query
+    query_embedding = embedding_function.encode([query_text]).astype('float32')
+
+    # search in FAISS index
+    distances, indices = index.search(query_embedding, k)
+
+    # collect results
+    results = []
+    for i, idx in enumerate(indices[0]):
+        results.append({
+            "topic": unique_topics[idx],
+            "distance": float(distances[0][i])
+        })
+
+    print(f"\nUser query: {query_text}")
+    for r in results:
+        print(f"- {r['topic']} (distance={r['distance']:.4f})")
+
+    return results
+
+
 
 
 
@@ -137,7 +175,7 @@ def do_topic_modeling(data):
     #embeddings = []
     for chunk_text, topic_name in all_chunks:
         # Generate embedding for each chunk
-        embedding = embedding_function.encode([chunk_text]).astype('float16')[0]
+        embedding = embedding_function.encode([chunk_text]).astype('float32')[0]
 
         # Collect embeddings and metadata
         #embeddings.append(embedding)  # Store the embedding for FAISS
@@ -211,4 +249,34 @@ def init_model():
     chunks = get_chunks(documents)
     return vectorize(chunks, 50)
 
-initial_vectorizer, initial_model, initial_topic_names = init_model()
+
+
+# initial_vectorizer, initial_model, initial_topic_names = init_model()
+# topic_embeddings = embedding_function.encode(initial_topic_names).astype('float32')
+
+metadata_content = None
+faiss_index_bytes = None
+topic_embeddings = None
+dimension = None
+index = None
+unique_topics = None
+
+if __name__ == "__main__":
+    url = "http://127.0.0.1:8000/fetch_topics"
+
+    response = requests.get(url)
+    data = response.json()
+
+    if data["status"] == "success":
+        unique_topics = data["topics"]
+        print("Topics:", unique_topics)
+    else:
+        print("Error:", data["message"])
+
+    topic_embeddings = embedding_function.encode(unique_topics).astype('float32')
+    dimension = topic_embeddings.shape[1]
+
+    index = faiss.IndexFlatL2(dimension)
+    index.add(topic_embeddings)
+
+    user_question("What is the color of keyboard?")

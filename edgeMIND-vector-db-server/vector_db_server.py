@@ -5,6 +5,7 @@ import logging
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
+import base64
 
 logging.basicConfig(level=logging.INFO)
 
@@ -13,6 +14,32 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
+
+@app.route('/fetch_topics', methods=['GET'])
+def fetch_data():
+    main_metadata_file_path = 'topic_metadata_with_names.txt'
+
+    try:
+        topics = set()
+        with open(main_metadata_file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    topic = entry.get("topic")
+                    if topic:
+                        topics.add(topic)
+                except json.JSONDecodeError:
+                    continue
+
+        unique_topics = sorted(topics)
+
+        return jsonify({
+            "status": "success",
+            "topics": unique_topics
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 

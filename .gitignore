@@ -61,6 +61,8 @@ anskun filut
 data_files_for_reset
 locustfile.py
 /traefik
+testi.py
+2download.py
 
 # Files that include important or temporary data
 *.png
