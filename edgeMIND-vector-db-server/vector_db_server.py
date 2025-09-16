@@ -53,6 +53,7 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     return results
 
 
+
 def store_data(metadata, metadata_file_path, index_file_path):
     embeddings = np.array([np.array(entry["embedding"], dtype='float32') for entry in metadata])
 

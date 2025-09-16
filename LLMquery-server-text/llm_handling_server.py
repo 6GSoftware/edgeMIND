@@ -191,7 +191,7 @@ def process_query():
             "embedding": metadata["embedding"]
         }
 
-        logging.info(f"New metadata is: {str(new_metadata)}")
+        #logging.info(f"New metadata is: {str(new_metadata)}")
 
         url = str(VECTOR_DB_URL + "/store_to_tmp")
 
