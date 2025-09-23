@@ -33,19 +33,24 @@ torch.random.manual_seed(0)
 
 VECTOR_DB_URL = "http://vector_db_server:8000"
 INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
+# VECTOR_DB_URL = "http://127.0.0.1:8000"
+# INPUT_LAYER_URL = "http://127.0.0.1:6501/process_user_question"
 
 #loppu = "/process_generated_response"
 
-model_path = "./saved_LLM_model"
-model = AutoModelForCausalLM.from_pretrained(model_path)
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
-generation_args = {
-    "max_new_tokens": 500,
-    "return_full_text": False,
-    "temperature": 0.5,
-    "do_sample": True,
-}
+try:
+    model_path = "./saved_LLM_model"
+    model = AutoModelForCausalLM.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+    generation_args = {
+        "max_new_tokens": 500,
+        "return_full_text": False,
+        "temperature": 0.5,
+        "do_sample": True,
+    }
+except :
+    logging.warning(f"Failed to load model.")
 
 # Define the prompt template for the assistant
 prompt_template = """
@@ -215,7 +220,33 @@ def process_query():
         logging.error(f"An error occurred: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
+@app.route('/process_query2', methods=['POST'])
+def process_query2():
+    try:
+        user_question = request.json.get('question', '')
+        if not user_question:
+            return jsonify({'status': 'error', 'message': 'No question provided'}), 400
+
+        logging.info(f"Received question: {user_question}")
+
+        post_data = {'question': user_question}
+
+        # Forward the question to input layer
+        response = requests.post("http://127.0.0.1:8000/search2", json=post_data)
+        response.raise_for_status()
+
+        return jsonify(response.json())
+
+    except Exception as e:
+        logging.error(f"Error in process_query: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 #if __name__ == '__main__':
 #    socket_thread = threading.Thread(target=start_server, daemon=True)
 #    socket_thread.start()
 #    app.run(host='0.0.0.0', port=6000)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

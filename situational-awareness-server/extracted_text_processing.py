@@ -13,7 +13,7 @@ import nltk
 import re
 
 import requests
-from situational_awareness_faiss import create_metadata_for_text_chunks, create_topics, send_new_data_to_database
+from situational_awareness_faiss import create_metadata_for_text_chunks, create_topics, send_new_data_to_database2
 import logging
 from flask import Flask, request, jsonify
 
@@ -24,6 +24,7 @@ app = Flask(__name__)
 
 HOST = "0.0.0.0"
 TAG = "extracted_text_processing:  "
+
 VECTOR_DB_URL_SEARCH = "http://vector_db_server:8000/search"
 
 pre_processed_text_file_path = './Pre_processed_text.txt'
@@ -123,7 +124,6 @@ def handle_user_question():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
     try:
@@ -140,7 +140,7 @@ def handle_extracted_texts():
 
         logging.info(f"{TAG} BEFORE: {processed_file_contents}")
 
-        send_new_data_to_database([
+        send_new_data_to_database2([
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
         ])
 
@@ -149,3 +149,6 @@ def handle_extracted_texts():
     except Exception as e:
         logging.error(f"{TAG} Error while processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=6501, debug=True)

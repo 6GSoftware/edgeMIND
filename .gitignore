@@ -46,6 +46,7 @@ emultimodal_extracted_data.txt
 multimodal_faiss_index.index
 Pre_processed_text.txt
 topic_metadata_with_names.txt
+topic_metadata_with_names.json
 
 # Other files and directories
 workflow_documentation.md
@@ -61,6 +62,7 @@ anskun filut
 data_files_for_reset
 locustfile.py
 /traefik
+db_test.py
 
 # Files that include important or temporary data
 *.png
