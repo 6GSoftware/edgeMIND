@@ -67,16 +67,16 @@ def send_new_data_to_database2(documents):
         response = requests.post(VECTOR_DB_URL2, json=payload)
         response.raise_for_status()
 
-        for topic in new_topics:
-            topic_name = topic["topic"]
-            topic_emb = np.array(topic["topic_embeddings"], dtype="float32").reshape(1, -1)
+        if new_topics:
+            topic_labels = [t["topic"] for t in new_topics]
+            embeddings = np.array([t["topic_embeddings"] for t in new_topics], dtype="float32")
 
             if index is None:
-                dim = topic_emb.shape[1]
+                dim = embeddings.shape[1]
                 index = faiss.IndexFlatL2(dim)
 
-            index.add(topic_emb)
-            topic_names.append(topic_name)
+            index.add(embeddings)
+            topic_names.extend(topic_labels)
 
         logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
     except requests.RequestException as e:
@@ -177,7 +177,7 @@ def create_topics2(chunks):
     outliers = []
     new_topics = []
 
-    threshold = 1.0
+    threshold = 1.4
 
     # If no topics exist yet, treat all chunks as outliers
     if not topic_names or index is None:
@@ -195,6 +195,8 @@ def create_topics2(chunks):
 
             best_distance = distances[0][0]
             best_idx = indices[0][0]
+
+            print(f'BEST:{best_distance}')
 
             if best_distance < threshold:
                 topic_entry = next((t for t in existing_topics if t["topic_indx"] == best_idx), None)
