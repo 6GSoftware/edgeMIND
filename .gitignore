@@ -63,6 +63,7 @@ data_files_for_reset
 locustfile.py
 /traefik
 db_test.py
+extra
 
 # Files that include important or temporary data
 *.png
