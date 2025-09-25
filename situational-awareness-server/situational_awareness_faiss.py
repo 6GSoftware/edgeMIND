@@ -15,6 +15,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import requests
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 
@@ -49,24 +50,24 @@ def send_new_data_to_database(documents):
 
 
 def send_new_data_to_database2(documents):
-    global index, unique_topics
+    global index, topic_names
 
     # Split the new data into chunks
     chunks = get_chunks(documents)
 
-    fitting_chunks, new_chunks = create_topics2(chunks)
+    existing_topics, new_topics = create_topics2(chunks)
 
     # Build payload for vector DB
     payload = {
-        "new_topics": new_chunks,
-        "existing_topics": fitting_chunks
+        "new_topics": new_topics,
+        "existing_topics": existing_topics
     }
 
     try:
         response = requests.post(VECTOR_DB_URL2, json=payload)
         response.raise_for_status()
 
-        for topic in new_chunks:
+        for topic in new_topics:
             topic_name = topic["topic"]
             topic_emb = np.array(topic["topic_embeddings"], dtype="float32").reshape(1, -1)
 
@@ -75,7 +76,7 @@ def send_new_data_to_database2(documents):
                 index = faiss.IndexFlatL2(dim)
 
             index.add(topic_emb)
-            unique_topics.append(topic_name)
+            topic_names.append(topic_name)
 
         logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
     except requests.RequestException as e:
@@ -127,7 +128,7 @@ def create_topics(data):
     #logging.info(f"{TAG} the topic_probs_matrix is: {np.matrix(topic_probs_matrix)}\n")
 
     fitting_chunks = []
-    outliners = []
+    outliers = []
 
     # Calculate which are the topics that suit best for each chunk
     best_topic_indices = topic_probs_matrix.argmax(axis=1)  # Best topic per chunk <- index of the topic
@@ -143,43 +144,43 @@ def create_topics(data):
         if score > threshold:
             topic_name = initial_topic_names[best_topic_indices[idx]]
             #fitting_chunks.append((chunks[idx], topic_name))
-            outliners.append(data[idx])
+            outliers.append(data[idx])
         else:
-            outliners.append(data[idx])
+            outliers.append(data[idx])
 
-    if outliners:
+    if outliers:
         # Vectorizer for outliers
-        new_vectorizer, new_model, new_topic_names = vectorize(outliners, 1)
+        new_vectorizer, new_model, new_topic_names = vectorize(outliers, 1)
 
         doc_topic = new_model.doc_topic_
 
         # Set the best matching topics for outliers
-        for i, chunk in enumerate(outliners):
+        for i, chunk in enumerate(outliers):
             top_topic_idx = doc_topic[i].argmax()
             top_topic_name = new_topic_names[top_topic_idx]
-            outliners[i] = (chunk, top_topic_name)
+            outliers[i] = (chunk, top_topic_name)
 
     # Combine chunks
-    all_chunks = fitting_chunks + outliners
+    all_chunks = fitting_chunks + outliers
 
     return all_chunks
 
 
 def create_topics2(chunks):
-    global index, unique_topics
+    global index, topic_names
 
     """
     Check if the new data matches any existing topics. 
     """
 
-    fitting_chunks = []
+    existing_topics = []
     outliers = []
-    new_chunks = []
+    new_topics = []
 
     threshold = 1.0
 
     # If no topics exist yet, treat all chunks as outliers
-    if not unique_topics or index is None:
+    if not topic_names or index is None:
         outliers = chunks
     else:
         # Encode all chunks into embeddings in one batch
@@ -196,11 +197,11 @@ def create_topics2(chunks):
             best_idx = indices[0][0]
 
             if best_distance < threshold:
-                topic_entry = next((t for t in fitting_chunks if t["topic_indx"] == best_idx), None)
+                topic_entry = next((t for t in existing_topics if t["topic_indx"] == best_idx), None)
                 if topic_entry is not None:
                     topic_entry["chunks"].append({"text": chunk})
                 else:
-                    fitting_chunks.append({
+                    existing_topics.append({
                         "topic_indx": int(best_idx),
                         "chunks": [{"text": chunk}]
                     })
@@ -221,17 +222,17 @@ def create_topics2(chunks):
             new_topic_emb = embedding_function.encode([topic_name]).astype("float32")
 
             # Group chunks under the same topic if already exists
-            topic_entry = next((t for t in new_chunks if t["topic"] == topic_name), None)
+            topic_entry = next((t for t in new_topics if t["topic"] == topic_name), None)
             if topic_entry is not None:
                 topic_entry["chunks"].append({"text": chunk})
             else:
-                new_chunks.append({
+                new_topics.append({
                     "topic": topic_name,
                     "topic_embeddings": new_topic_emb[0].tolist(),
                     "chunks": [{"text": chunk}]
                 })
 
-    return fitting_chunks, new_chunks
+    return existing_topics, new_topics
 
 
 def get_chunks(documents):
@@ -301,32 +302,40 @@ def init_model():
 topic_embeddings = None
 dimension = None
 index = None
-unique_topics = []
+topic_names = []
 
 url = "http://127.0.0.1:8000/get_topics"
 
-response = requests.get(url)
-data = response.json()
 
-topics = data.get("topics", [])
+while True:
+    try:
+        response = requests.get(url)
+        data = response.json()
 
-if topics:
-    logging.info(f"Topics: {topics}")
+        topics = data.get("topics", [])
 
-    unique_topics = [t for t in topics if isinstance(t, str) and t.strip()]
-    if not unique_topics:
-        logging.error("No valid topics found after filtering")
-    else:
-        topic_embeddings = embedding_function.encode(unique_topics).astype("float32")
-        logging.info(f"Embeddings shape: {topic_embeddings.shape}")
+        if topics:
+            logging.info(f"Topics: {topics}")
 
-        # Build FAISS index
-        dimension = topic_embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-        index.add(topic_embeddings)
+            topic_names = [t for t in topics if isinstance(t, str) and t.strip()]
+            if not topic_names:
+                logging.error("No valid topics found after filtering")
+            else:
+                topic_embeddings = embedding_function.encode(topic_names).astype("float32")
+                logging.info(f"Embeddings shape: {topic_embeddings.shape}")
 
-else:
-    logging.error("No topics found in API response")
+                # Build FAISS index
+                dimension = topic_embeddings.shape[1]
+                index = faiss.IndexFlatL2(dimension)
+                index.add(topic_embeddings)
+
+            break
+        else:
+            logging.error("No topics found in API response")
+            break
+    except Exception as e:
+        logging.warning(f"Vector DB not ready ({e}), retrying in 3s...")
+        time.sleep(3)
 
 
 # def user_question(query_text, k=3):
