@@ -10,14 +10,15 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-DB_SERVER_IP = "0.0.0.0"
-DB_SERVER_PORT = 8000
-
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
-main_index_file_path = 'multimodal_faiss_index.index'
-main_metadata_file_path = 'topic_metadata_with_names.json'
+PERMANENT_METADATA_FILE_PATH = 'topic_metadata_with_names.json'
+PERMANENT_INDEX_FILE_PATH = 'multimodal_faiss_index.index'
 
+TEMP_METADATA_FILE_PATH = 'temp_metadata.json'
+TEMP_INDEX_FILE_PATH  = 'temp_index.index'
+
+data_from_last_uploaded_file = []
 
 def load_metadata(file_path):
     """Load metadata from a file."""
@@ -63,7 +64,7 @@ def search_faiss_index(query_text, index, metadata, embedding_function, k=3):
     return results
 
 
-def search_faiss_index2(query_text, index, metadata, embedding_function, k=3):
+def search_faiss_index2(query_text, index, metadata, k=1):
     """Search FAISS index for the closest topic."""
 
     # Do the actual search to the faiss index
@@ -133,13 +134,11 @@ def store_to_tmp():
 
 @app.route('/store', methods=['POST'])
 def store_to_db():
-    main_index_file_path = 'multimodal_faiss_index.index'
-    main_metadata_file_path = 'topic_metadata_with_names.txt'
 
     try:
         data = request.json
         metadata = data["metadata"]
-        msg = store_data(metadata, main_metadata_file_path, main_index_file_path)
+        msg = store_data(metadata, PERMANENT_METADATA_FILE_PATH, PERMANENT_INDEX_FILE_PATH)
         
         return jsonify({"status": "success", "message": msg})
 
@@ -149,8 +148,11 @@ def store_to_db():
 
 @app.route('/store2', methods=['POST'])
 def store():
-    metadata = load_metadata2(main_metadata_file_path)
-    index = load_faiss_index(main_index_file_path)
+    global data_from_last_uploaded_file
+    data_from_last_uploaded_file = []
+
+    metadata = load_metadata2(PERMANENT_METADATA_FILE_PATH)
+    index = load_faiss_index(PERMANENT_INDEX_FILE_PATH)
 
     data = request.json
     new_topics = data.get("new_topics", [])
@@ -164,10 +166,13 @@ def store():
 
         metadata.append({"topic": topic_name, "chunks": chunks})
 
+        for c in chunks:
+            if "text" in c:
+                data_from_last_uploaded_file.append(c["text"])
+
         if index is None:
             dim = topic_embedding.shape[-1]
             index = faiss.IndexFlatL2(dim)
-
         index.add(topic_embedding)
     
     # Handle existing topics
@@ -175,29 +180,28 @@ def store():
         topic_indx = topic["topic_indx"]
         chunks = topic["chunks"]
 
-
         if 0 <= topic_indx < len(metadata):
             metadata[topic_indx]["chunks"].extend(chunks)
+
+            for c in chunks:
+                if "text" in c:
+                    data_from_last_uploaded_file.append(c["text"])
         else:
             return jsonify({
                 "status": "error",
                 "message": f"Invalid topic index {topic_indx}"
             }), 400
 
-    # Save back to disk
-    save_metadata(metadata, main_metadata_file_path)
-
+    # Save metadata + index to disk
+    save_metadata(metadata, PERMANENT_METADATA_FILE_PATH)
     if index is not None:
-        faiss.write_index(index, main_index_file_path)
+        faiss.write_index(index, PERMANENT_INDEX_FILE_PATH)
 
     return jsonify({"status": "success", "message": "Data stored"})
     
 
 @app.route('/search', methods=['POST'])
 def search_database():
-    main_index_file_path = 'multimodal_faiss_index.index'
-    main_metadata_file_path = 'topic_metadata_with_names.txt'
-
     try:
         request_data = request.get_json()
         question = request_data['question']
@@ -206,8 +210,8 @@ def search_database():
         #results = f"Your question was: {question}"
 
         # Load faiss index, metadata and embedding function every time a new client is connected
-        index = load_faiss_index(main_index_file_path)
-        metadata = load_metadata(main_metadata_file_path)
+        index = load_faiss_index(PERMANENT_INDEX_FILE_PATH)
+        metadata = load_metadata(PERMANENT_METADATA_FILE_PATH)
         #embedding_function = load_embedding_function()
 
         results = search_faiss_index(question, index, metadata, embedding_function)
@@ -228,9 +232,6 @@ def search_database():
 
 @app.route('/search2', methods=['POST'])
 def search_database2():
-    main_index_file_path = 'multimodal_faiss_index.index'
-    main_metadata_file_path = 'topic_metadata_with_names.json'
-
     try:
         request_data = request.get_json()
         question = request_data['question']
@@ -239,11 +240,11 @@ def search_database2():
         #results = f"Your question was: {question}"
 
         # Load faiss index, metadata and embedding function every time a new client is connected
-        index = load_faiss_index(main_index_file_path)
-        metadata = load_metadata2(main_metadata_file_path)
+        index = load_faiss_index(PERMANENT_INDEX_FILE_PATH)
+        metadata = load_metadata2(PERMANENT_METADATA_FILE_PATH)
         #embedding_function = load_embedding_function()
 
-        results = search_faiss_index2(question, index, metadata, embedding_function)
+        results = search_faiss_index2(question, index, metadata, 1)
         logging.info("Result from searching the faiss index:\n", results)
 
         #result_list = [result['text'] for result in results]
@@ -261,11 +262,11 @@ def search_database2():
 
 @app.route('/get_topics', methods=['GET', 'POST'])
 def get_topics():
-    if not os.path.exists(main_metadata_file_path):
+    if not os.path.exists(PERMANENT_METADATA_FILE_PATH):
         return jsonify({"status": "error", "message": "No metadata file found."}), 400
 
     try:
-        metadata = load_metadata(main_metadata_file_path)
+        metadata = load_metadata2(PERMANENT_METADATA_FILE_PATH)
         topics = [entry["topic"] for entry in metadata]
 
         return jsonify({"status": "success", "topics": topics})
@@ -282,6 +283,15 @@ def save_metadata(metadata, file_path):
                 line += ","
             f.write(line + "\n")
         f.write("]\n")
+
+
+@app.route('/get_data_from_last_uploaded_file', methods=['GET', 'POST'])
+def get_data_from_last_uploaded_file():
+    if data_from_last_uploaded_file:
+        return jsonify({"data": data_from_last_uploaded_file}), 200
+    else:
+        return jsonify({"error": "No files have been uploaded yet!"}), 404
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)

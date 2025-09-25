@@ -241,6 +241,38 @@ def process_query2():
     except Exception as e:
         logging.error(f"Error in process_query: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+
+@app.route('/question_about_last_uploaded_file', methods=['POST'])
+def question_about_last_uploaded_file():
+    try:
+        user_question = request.json.get('question', '')
+        if not user_question:
+            return jsonify({'status': 'error', 'message': 'No question provided'}), 400
+
+        logging.info(f"Received question: {user_question}")
+
+        url = "http://127.0.0.1:8000/get_data_from_last_uploaded_file"
+        response = requests.get(url)
+
+        response_json = response.json()
+
+        print(response_json)
+
+        if response.status_code == 200:
+            return jsonify({
+                "status": "success",
+                "message": response_json.get("data")
+            }), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": response_json.get("error", response.text)
+            }), response.status_code
+
+    except Exception as e:
+        logging.error(f"Error in question_about_last_uploaded_file: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 #if __name__ == '__main__':
