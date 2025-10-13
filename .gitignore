@@ -64,6 +64,10 @@ locustfile.py
 /traefik
 db_test.py
 extra
+indexit
+toimivat
+permanent_metadata.json
+temp_metadata.json
 
 # Files that include important or temporary data
 *.png

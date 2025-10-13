@@ -13,10 +13,9 @@ import nltk
 import re
 
 import requests
-from situational_awareness_faiss import create_metadata_for_text_chunks, create_topics, send_new_data_to_database2
+from situational_awareness_faiss import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -25,7 +24,8 @@ app = Flask(__name__)
 HOST = "0.0.0.0"
 TAG = "extracted_text_processing:  "
 
-VECTOR_DB_URL_SEARCH = "http://vector_db_server:8000/search"
+# VECTOR_DB_URL_SEARCH = "http://vector_db_server:8000/search"
+VECTOR_DB_URL_SEARCH = "http://127.0.0.1:8000/search"
 
 pre_processed_text_file_path = './Pre_processed_text.txt'
 
@@ -64,66 +64,6 @@ def process_extracted_texts(file_content):
     return processed_file_content
 
 
-
-@app.route('/process_user_question', methods=['POST'])
-def handle_user_question():
-    try:
-        req_data = request.json
-        question = req_data["question"]
-
-        if not question:
-            logging.info(f"{TAG} No data received.")
-            return jsonify({"status": "error", "message": "No data received"}), 400
-
-        question_str = preprocess_sentence(str(question))
-
-        with open(pre_processed_text_file_path, 'a', encoding='utf-8') as output_file:
-            output_file.write(question_str)
-
-        data_for_topic_modeling = [question_str]
-        all_chunks = create_topics(data_for_topic_modeling)
-        logging.info(f"chunks: {str(all_chunks)}")
-        metadata = create_metadata_for_text_chunks(all_chunks)
-
-        metadata = metadata.pop()
-
-        logging.info("Topic that was created: " + metadata["topic"] + "\n")
-
-        post_data = {
-            'question': metadata["topic"]
-        }
-        headers = {'Content-type': 'application/json'}
-
-        # Get results from vector database based on the created topic for the user question
-        response = requests.post(VECTOR_DB_URL_SEARCH, data=json.dumps(post_data), headers=headers)
-        response_as_json = response.json()
-        logging.info(f"Response from db server: {response_as_json}\n")
-
-        if response_as_json['status'] == 'error':
-            response_to_user = f"An error occurred in searching the vector database: {response_as_json['message']}"
-            return jsonify({'status': 'error', 'message': response_to_user}), 500
-
-        db_result = str(response_as_json['message'])
-
-        res_as_json = {
-            "db_result": db_result,
-            "usr_question_metadata": metadata
-        }
-
-        logging.info(f"Results from db based on user's question: {db_result}")
-        logging.info("Metadata associated to the question:"
-                     + "\ntimestamp: " + str(metadata["timestamp"])
-                     + "\ntopic: " + str(metadata["topic"])
-                     + "\ntext: " + str(metadata["text"])
-                     + "\nembedding: " + str(metadata["embedding"]))
-
-        return jsonify({"status": "success", "message": res_as_json})
-
-    except Exception as e:
-        logging.error(f"{TAG} Error while processing: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
     try:
@@ -140,9 +80,11 @@ def handle_extracted_texts():
 
         logging.info(f"{TAG} BEFORE: {processed_file_contents}")
 
-        send_new_data_to_database2([
+        database = "temp"
+
+        send_new_data_to_database([
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
-        ])
+        ], database)
 
         return jsonify({"status": "success", "message": "Data processed"})
 
@@ -151,4 +93,4 @@ def handle_extracted_texts():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=6501, debug=True)
+    app.run(host="0.0.0.0", port=6501, debug=False)

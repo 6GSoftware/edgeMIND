@@ -9,7 +9,6 @@ This module is the edgeMIND user query processing server. This module:
     > forwards the generated response to the situational awareness module for further processing.
 """
 
-#from dotenv import load_dotenv
 import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -19,6 +18,7 @@ import re
 import requests
 from flask import Flask, request, jsonify
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,17 +32,19 @@ def health():
 torch.random.manual_seed(0)
 
 VECTOR_DB_URL = "http://vector_db_server:8000"
-INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
 # VECTOR_DB_URL = "http://127.0.0.1:8000"
-# INPUT_LAYER_URL = "http://127.0.0.1:6501/process_user_question"
+# INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
+SA_URL = "http://127.0.0.1:6501/process_extracted_texts"
 
-#loppu = "/process_generated_response"
+os.environ["CUDA_VISIBLE_DEVICES"] = "" # FOR TESTING. REMOVE IF WANT TO USE GPU.
 
 try:
     model_path = "./saved_LLM_model"
     model = AutoModelForCausalLM.from_pretrained(model_path)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
+
     pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+
     generation_args = {
         "max_new_tokens": 500,
         "return_full_text": False,
@@ -52,35 +54,31 @@ try:
 except :
     logging.warning(f"Failed to load model.")
 
+if torch.cuda.is_available():
+    print("Using GPU:", torch.cuda.get_device_name(0))
+else:
+    print("Using CPU")
+
+
 # Define the prompt template for the assistant
 prompt_template = """
 <|system|>
- 
-You are an expert assistant that answers to the user query.
- 
-You are given some extracted parts relevant to the user query.
- 
-If you don't know the answer, just say "I don't know." Don't try to make up an answer.
- 
-It is very important that you ALWAYS answer the question in the same language the question is in. Remember to always do that.
- 
-Use only the following pieces of context to answer the question at the end.
- 
+You are an expert assistant. 
+You must follow these rules strictly:
+- Only use the information in the context provided.
+- If the answer is not fully contained in the context, reply exactly: "I don't know."
+- Never use outside knowledge, assumptions, or speculation.
+- Always respond in the same language as the question.
 <|end|>
- 
+
 <|user|>
- 
 Context: {context}
- 
-Question is below. Remember to answer in the same language:
- 
 Question: {question}
- 
 <|end|>
- 
+
 <|assistant|>
 """
- 
+
 # Initialize the prompt with template
 PROMPT = PromptTemplate(
     template=prompt_template,
@@ -131,6 +129,8 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
         message = PROMPT.format(context=db_query_result, question=user_question)
     else:
         return ""
+    
+    logging.info(f"Prompt: {message}")
 
     # Generate output using the text generation model
     output = pipe(message, **generation_args)
@@ -150,97 +150,51 @@ def process_query():
     try:
         user_question = request.json.get('question', '')
         if not user_question:
-            return jsonify({'status': 'error', 'message': 'No question provided'}), 400
-
-        logging.info(f"Received question: {user_question}")
-        now = datetime.now()
-        logging.info(now)
-
-        # Data to be sent
-        post_data = {
-            'question': user_question
-        }
-
-        # Defining content type for the payload
-        headers = {'Content-type': 'application/json'}
-        # Post the user question to the vector database server and get the query result as response
-        #response = requests.post(VECTOR_DB_URL, data=json.dumps(post_data), headers=headers)
-        #response_as_json = response.json()
-        ##db_result = response_as_json['message']
-        #logging.info(f"response from db server: {response_as_json}")
-
-        response = requests.post(INPUT_LAYER_URL, data=json.dumps(post_data), headers=headers)
-        response_as_json = response.json()
-
-        #if response_as_json['status'] == 'error':
-        if response_as_json['status'] == 'error':
-            logging.info("An error occurred in generating the topic and/or searchin the vector database")
-            return jsonify({'status': 'error', 'message': response_as_json['message']}), 500
-
-        whole_response = response_as_json['message']
-        db_result = whole_response['db_result']
-        metadata = whole_response['usr_question_metadata']
-
-        # Query the llm
-        llm_result = query_llm(generation_args, pipe, db_result, user_question)
-
-        if not llm_result:
-            exception_message = "I couldn't find relevant information for your query. Could you provide more details?"
-            return jsonify({'status': 'ok', 'message': exception_message})
-        
-        text_for_metadata = str(user_question) + " " + llm_result
-        new_metadata = {
-            "timestamp": metadata["timestamp"],
-            "topic": metadata["topic"],  # Store the topic name here
-            "text": text_for_metadata,
-            "embedding": metadata["embedding"]
-        }
-
-        logging.info(f"New metadata is: {str(new_metadata)}")
-
-        url = str(VECTOR_DB_URL + "/store_to_tmp")
-
-        # Send the user question + llm result to the temp database
-        response = requests.post(url, json={"metadata": new_metadata})
-        response.raise_for_status()
-        logging.info(f"Data successfully sent to the vector database. Status: {response.status_code}")
-        
-        # Send LLM generated result to input processing layer
-        #input_post_data = {'data': user_question + ' ' + llm_result}
-        #logging.info(f"Data to be sent to SA: {json.dumps(input_post_data)}")
-
-        #input_response = requests.post(INPUT_LAYER_URL, data=json.dumps(input_post_data), headers=headers)
-        #input_response_as_json = input_response.json()
-        #logging.info(f"Received from the input side: {input_response_as_json['status']}, {input_response_as_json['message']}")
-
-
-        return jsonify({'status': 'ok', 'message': llm_result})
-
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-@app.route('/process_query2', methods=['POST'])
-def process_query2():
-    try:
-        user_question = request.json.get('question', '')
-        if not user_question:
-            return jsonify({'status': 'error', 'message': 'No question provided'}), 400
+            return jsonify({'message': 'No question provided'}), 400
 
         logging.info(f"Received question: {user_question}")
 
         post_data = {'question': user_question}
+        response = requests.post("http://127.0.0.1:8000/search", json=post_data)
 
-        # Forward the question to input layer
-        response = requests.post("http://127.0.0.1:8000/search2", json=post_data)
-        response.raise_for_status()
+        if response.status_code != 200:
+            return jsonify({'message': f"Vector DB error: {response.text}"}), response.status_code
 
-        return jsonify(response.json())
+        response_as_json = response.json()
+        print(f"Return :{response_as_json}")
+
+        # Parse chunks
+        permanent_chunks = response_as_json.get("permanent_chunks", [])
+        temp_chunks = response_as_json.get("temp_chunks", [])
+        all_chunks = permanent_chunks + temp_chunks
+
+        logging.info(f"Permanent chunks: {permanent_chunks}")
+        logging.info(f"Temp chunks: {temp_chunks}")
+
+        if not all_chunks:
+            return jsonify({'message': "No related info found for your question."}), 200
+
+        # Form chunks for LLM
+        db_result = "\n".join([f"{i+1}. {chunk}" for i, chunk in enumerate(all_chunks)])
+
+        # return jsonify({'message': "OK"}), 200
+
+        # llm_result = query_llm(generation_args, pipe, db_result, user_question)
+
+        llm_result = "The color of the keyboard is black with white letters."
+
+        if not llm_result:
+            return jsonify({'message': "I couldn't find relevant information for your query. Could you provide more details?"}), 200
+
+        payload = {"data": llm_result}
+
+        requests.post(SA_URL, json=payload)
+
+        return jsonify({'message': llm_result}), 200
 
     except Exception as e:
         logging.error(f"Error in process_query: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'message': str(e)}), 500
     
 
 @app.route('/question_about_last_uploaded_file', methods=['POST'])
@@ -248,37 +202,29 @@ def question_about_last_uploaded_file():
     try:
         user_question = request.json.get('question', '')
         if not user_question:
-            return jsonify({'status': 'error', 'message': 'No question provided'}), 400
+            return jsonify({'message': 'No question provided'}), 400
 
         logging.info(f"Received question: {user_question}")
 
         url = "http://127.0.0.1:8000/get_data_from_last_uploaded_file"
         response = requests.get(url)
-
         response_json = response.json()
 
         print(response_json)
 
         if response.status_code == 200:
             return jsonify({
-                "status": "success",
                 "message": response_json.get("data")
             }), 200
         else:
             return jsonify({
-                "status": "error",
                 "message": response_json.get("error", response.text)
             }), response.status_code
 
     except Exception as e:
         logging.error(f"Error in question_about_last_uploaded_file: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'message': str(e)}), 500
 
-
-#if __name__ == '__main__':
-#    socket_thread = threading.Thread(target=start_server, daemon=True)
-#    socket_thread.start()
-#    app.run(host='0.0.0.0', port=6000)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
