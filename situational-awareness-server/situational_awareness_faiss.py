@@ -16,6 +16,8 @@ from sentence_transformers import SentenceTransformer
 import requests
 import logging
 import time
+import threading
+import pyRAPL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,6 +25,8 @@ TAG = "situational_awareness_faiss:  "
 
 # VECTOR_DB_URL = "http://vector_db_server:8000/store"
 VECTOR_DB_URL = "http://127.0.0.1:8000/store"
+
+MEASURE_URL = "http://127.0.0.1:5030/measure"
 
 file_path = './Pre_processed_text.txt'
 
@@ -32,7 +36,7 @@ embedding_function = SentenceTransformer('all-mpnet-base-v2')
 #----------------------------------------------------------------------------------------------------------------------------
 
 
-def send_new_data_to_database(documents, database):
+def send_new_data_to_database(documents, database, start_time, run_id, meter):
     global perm_index, perm_topics, temp_index, temp_topics
 
     if database == "temp":
@@ -56,8 +60,12 @@ def send_new_data_to_database(documents, database):
     payload = {
         "new_topics": new_topics,
         "existing_topics": existing_topics,
-        "database": database
+        "database": database,
+        "run_id": run_id
     }
+
+    if run_id:
+        threading.Thread(target=report_to_measuring_server, args=(start_time, run_id, "sa", meter), daemon=True).start()
 
     try:
         response = requests.post(VECTOR_DB_URL, json=payload)
@@ -194,6 +202,36 @@ def vectorize(chunks, topic_count):
 
     return vectorizer, model, topic_names
 
+
+def report_to_measuring_server(start_time, run_id, service, meter):
+    """Report total processing duration to the measurement server."""
+    try:
+        end_time = time.time()
+        meter.end()
+        duration = end_time - start_time
+        
+        energy_pkg = sum(meter.result.pkg) / 1_000_000
+        energy_dram = sum(meter.result.dram) / 1_000_000
+        energy_joules = energy_pkg + energy_dram
+
+        payload = {
+            "run_id": run_id,
+            "service": service,
+            "duration": duration,
+            "start_time": start_time,
+            "end_time": end_time,
+            "energy_joules": energy_joules
+        }
+
+        response = requests.post(MEASURE_URL, json=payload)
+
+        if response.ok:
+            logging.info(f"{TAG} Measurement reported successfully: {response.json()}")
+        else:
+            logging.error(f"{TAG} Failed to report measurement: {response.status_code} - {response.text}")
+
+    except Exception as e:
+        logging.error(f"{TAG} Could not contact measuring server: {e}")
 
 # def init_model():
 #     """

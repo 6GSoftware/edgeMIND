@@ -11,11 +11,14 @@ How this module works:
 import json
 import nltk
 import re
-
+import time
 import requests
 from situational_awareness_faiss import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
+import pyRAPL
+
+pyRAPL.setup()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -66,9 +69,18 @@ def process_extracted_texts(file_content):
 
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
+
+    start_time = time.time()
+
     try:
         # Extract data from the HTTP request
-        processed_file_contents = request.get_json().get("data", "")
+        data = request.get_json()
+
+        processed_file_contents = data.get("data", "")
+        run_id = data.get("run_id", "")
+
+        meter = pyRAPL.Measurement(f"sa_{run_id}")
+        meter.begin()
 
         if not processed_file_contents:
             logging.info(f"{TAG} No data received.")
@@ -84,7 +96,7 @@ def handle_extracted_texts():
 
         send_new_data_to_database([
             line + '\n' for line in processed_file_contents.split('\n') if line.strip()
-        ], database)
+        ], database, start_time, run_id, meter)
 
         return jsonify({"status": "success", "message": "Data processed"})
 
@@ -92,5 +104,6 @@ def handle_extracted_texts():
         logging.error(f"{TAG} Error while processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+        
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=6501, debug=False)

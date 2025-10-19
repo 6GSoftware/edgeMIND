@@ -5,6 +5,11 @@ import logging
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
+import time
+import requests
+import pyRAPL
+
+pyRAPL.setup()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,8 +17,12 @@ app = Flask(__name__)
 
 embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
+TAG = "vector_db:  "
+
 PERMANENT_METADATA_FILE_PATH = 'permanent_metadata.json'
 TEMP_METADATA_FILE_PATH = 'temp_metadata.json'
+
+MEASURE_URL = "http://127.0.0.1:5030/measure"
 
 # PERMANENT_INDEX_FILE_PATH = 'multimodal_faiss_index.index'
 # TEMP_INDEX_FILE_PATH  = 'temp_index.index'
@@ -41,7 +50,15 @@ def store():
 
     data_from_last_uploaded_file = []
 
-    data = request.json
+    data = request.get_json()
+
+    run_id = data.get("run_id", "")
+
+    start_time = time.time()
+
+    meter = pyRAPL.Measurement(f"vector_db_{run_id}")
+    meter.begin()
+
     new_topics = data.get("new_topics", [])
     existing_topics = data.get("existing_topics", [])
     database = data.get("database", "")
@@ -124,6 +141,9 @@ def store():
         permanent_metadata = metadata
         permanent_topic_index = topic_index
         permanent_chunk_indices = chunk_indices
+
+    if run_id:
+        report_to_measuring_server(start_time, run_id, "vector_db", meter)
 
     return jsonify({"status": "success", "message": "Data stored"})
 
@@ -236,6 +256,36 @@ def search():
         logging.error(f"Error in search: {e}")
         return jsonify({"message": str(e)}), 500
         
+def report_to_measuring_server(start_time, run_id, service, meter):
+    """Report total processing duration to the measurement server."""
+    try:
+        end_time = time.time()
+        meter.end()
+        duration = end_time - start_time
+
+        energy_pkg = sum(meter.result.pkg) / 1_000_000
+        energy_dram = sum(meter.result.dram) / 1_000_000
+        energy_joules = energy_pkg + energy_dram
+
+        payload = {
+            "service": service,
+            "duration": duration,
+            "start_time": start_time,
+            "end_time": end_time,
+            "run_id": run_id,
+            "energy_joules": energy_joules
+        }
+
+        response = requests.post(MEASURE_URL, json=payload)
+
+        if response.ok:
+            logging.info(f"{TAG} Measurement reported successfully: {response.json()}")
+        else:
+            logging.error(f"{TAG} Failed to report measurement: {response.status_code} - {response.text}")
+
+    except Exception as e:
+        logging.error(f"{TAG} Could not contact measuring server: {e}")
+
 
 def init_store(metadata_path):
     """
