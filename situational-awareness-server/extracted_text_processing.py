@@ -17,6 +17,7 @@ from situational_awareness_faiss import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
 import pyRAPL
+import psutil
 
 pyRAPL.setup()
 

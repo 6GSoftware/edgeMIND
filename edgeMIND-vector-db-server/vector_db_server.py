@@ -8,6 +8,7 @@ import os
 import time
 import requests
 import pyRAPL
+import psutil
 
 pyRAPL.setup()
 
@@ -264,7 +265,7 @@ def report_to_measuring_server(start_time, run_id, service, meter):
         duration = end_time - start_time
 
         energy_pkg = sum(meter.result.pkg) / 1_000_000
-        energy_dram = sum(meter.result.dram) / 1_000_000
+        energy_dram = sum(meter.result.dram or []) / 1_000_000
         energy_joules = energy_pkg + energy_dram
 
         payload = {
