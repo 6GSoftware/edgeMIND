@@ -24,10 +24,8 @@ logging.basicConfig(level=logging.INFO)
 
 TAG = "situational_awareness_faiss:  "
 
-# VECTOR_DB_URL = "http://vector_db_server:8000/store"
-VECTOR_DB_URL = "http://127.0.0.1:8000/store"
-
-MEASURE_URL = "http://127.0.0.1:5030/measure"
+# VECTOR_DB_URL = "http://127.0.0.1:8000/store"
+VECTOR_DB_URL = "http://vector-db:8000/store"
 
 file_path = './Pre_processed_text.txt'
 
@@ -37,8 +35,8 @@ embedding_function = SentenceTransformer('all-mpnet-base-v2')
 #----------------------------------------------------------------------------------------------------------------------------
 
 
-def send_new_data_to_database(documents, database, start_time, run_id, meter):
-    global perm_index, perm_topics, temp_index, temp_topics
+def send_new_data_to_database(documents, database):
+    global temp_index, temp_topics, perm_index, perm_topics
 
     if database == "temp":
         db_index = temp_index
@@ -62,16 +60,13 @@ def send_new_data_to_database(documents, database, start_time, run_id, meter):
         "new_topics": new_topics,
         "existing_topics": existing_topics,
         "database": database,
-        "run_id": run_id
     }
-
-    if run_id:
-        threading.Thread(target=report_to_measuring_server, args=(start_time, run_id, "sa", meter), daemon=True).start()
 
     try:
         response = requests.post(VECTOR_DB_URL, json=payload)
         response.raise_for_status()
-        logging.info(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
+        # MEASURE VALUES FROM THE VECTOR DB SHOULD BE RECEIVED TOO AND BE SENT TO FIRST SERVICE 
+        print(f"{TAG} Data successfully sent to the vector database. Status: {response.status_code}")
 
     except requests.RequestException as e:
         logging.error(f"{TAG} Failed to send data: {e}")
@@ -203,37 +198,6 @@ def vectorize(chunks, topic_count):
 
     return vectorizer, model, topic_names
 
-
-def report_to_measuring_server(start_time, run_id, service, meter):
-    """Report total processing duration to the measurement server."""
-    try:
-        end_time = time.time()
-        meter.end()
-        duration = end_time - start_time
-        
-        energy_pkg = sum(meter.result.pkg) / 1_000_000
-        energy_dram = sum(meter.result.dram or []) / 1_000_000
-        energy_joules = energy_pkg + energy_dram
-
-        payload = {
-            "run_id": run_id,
-            "service": service,
-            "duration": duration,
-            "start_time": start_time,
-            "end_time": end_time,
-            "energy_joules": energy_joules
-        }
-
-        response = requests.post(MEASURE_URL, json=payload)
-
-        if response.ok:
-            logging.info(f"{TAG} Measurement reported successfully: {response.json()}")
-        else:
-            logging.error(f"{TAG} Failed to report measurement: {response.status_code} - {response.text}")
-
-    except Exception as e:
-        logging.error(f"{TAG} Could not contact measuring server: {e}")
-
 # def init_model():
 #     """
 #     Initialize the topic model by reading existing data,
@@ -261,7 +225,9 @@ perm_embeddings = None
 temp_index = None
 perm_index = None
 
-url = "http://127.0.0.1:8000/get_topics"
+# url = "http://127.0.0.1:8000/get_topics"
+url = "http://vector-db:8000/get_topics"
+
 
 def fetch_topics(database_name):
     try:
@@ -270,7 +236,7 @@ def fetch_topics(database_name):
         data = response.json()
 
         topic_names = data.get("topics", [])
-        logging.info(f"{database_name} topics: {topic_names}")
+        print(f"{database_name} topics: {topic_names}")
 
         if not topic_names:
             logging.warning(f"No topics found for {database_name}")
@@ -282,7 +248,7 @@ def fetch_topics(database_name):
         index = faiss.IndexFlatL2(dimension)
         index.add(topic_embeddings)
 
-        logging.info(f"{database_name} embeddings shape: {topic_embeddings.shape}")
+        print(f"{database_name} embeddings shape: {topic_embeddings.shape}")
 
         return topic_names, topic_embeddings, index
     
@@ -296,7 +262,7 @@ while True:
         perm_topics, perm_embeddings, perm_index = fetch_topics("permanent")
 
         if perm_topics is not None:
-            logging.info("Successfully fetched topics from permanent database.")
+            print("Successfully fetched topics from permanent database.")
             break
         else:
             logging.warning("No topics found in database. Retrying in 3s...")
@@ -311,7 +277,7 @@ while True:
         temp_topics, temp_embeddings, temp_index = fetch_topics("temp")
 
         if temp_topics is not None:
-            logging.info("Successfully fetched topics from temp database.")
+            print("Successfully fetched topics from temp database.")
             break
         else:
             logging.warning("No topics found in database. Retrying in 3s...")

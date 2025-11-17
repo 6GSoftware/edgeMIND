@@ -10,6 +10,20 @@ After that the summary is saved in the texts_Image.txt file and the name of the 
 processed_images.txt file to prevent processing the same file again.
 """
 
+# I have been working here at the University of Jyväskylä for a bit over a year,
+# and for the past six months I have been working on the 6G project.
+
+# Currently, I’m focusing on developing a type of framework that proposes a new technique
+# to improve RAG searches by introducing a new way to store and retrieve data for LLM inferences.
+
+# However, I’m not very familiar with the actual research perspective of the project,
+# since my work is mostly related to technical and practical tasks, like programming and
+# setting up Kubernetes clusters and similar things.
+
+# That’s also my main interest for the future too, so I’m basically here to listen
+# and see if there’s any programming-related work I could help with.
+
+
 from PIL import Image
 import os
 #from transformers import AutoModelForCausalLM, AutoProcessor
@@ -26,11 +40,18 @@ from download_phi_3_5_vision import model, processor
 
 TAG = "image_processing:  "
 
+# I don't have very specific preferences about what i could working on.
+# Most of my experience is in back end python programming.
+# 
+# 
+# 
+# 
+# something relater to making technologies more accessible or easier to
+# use would be interesting. 
+
+
 # Define the folder containing images and the output text file
 image_folder = r'./Pictures'
-
-combined_text_file = './emultimodal_extracted_data.txt'
-
 
 def process_image_files(new_file):
 
@@ -85,11 +106,6 @@ def process_image_files(new_file):
         )[0]
 
         processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
-
-        # Save the response to the output file
-        with open(combined_text_file, 'a', encoding='utf-8') as f:
-            f.write(f"Response for {new_file}:\n")  # Store the image file name
-            f.write(response + "\n\n")
 
         logging.info(f"{TAG} Processed and saved response for {new_file}")
 

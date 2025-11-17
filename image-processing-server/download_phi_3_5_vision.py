@@ -17,8 +17,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Check if the model and processor are already saved locally.
-if os.path.exists("./Phi-3.5-vision"):
-    model_source = "./Phi-3.5-vision"
+if os.path.exists("./phi_3_5_vision"):
+    model_source = "./phi_3_5_vision"
 else:
     model_source = "microsoft/Phi-3.5-vision-instruct"
 
@@ -43,8 +43,8 @@ if model_source == "microsoft/Phi-3.5-vision-instruct":
 
     processor.chat_template = processor.tokenizer.chat_template
 
-    model.save_pretrained("./Phi-3.5-vision", safe_serialization=False)
-    processor.save_pretrained("./Phi-3.5-vision")
+    model.save_pretrained("./phi_3_5_vision", safe_serialization=False)
+    processor.save_pretrained("./phi_3_5_vision")
     logging.info("Model loaded and saved!")
 else:
     logging.info("Model loaded!")

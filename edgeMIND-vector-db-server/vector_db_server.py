@@ -9,6 +9,21 @@ import time
 import requests
 import pyRAPL
 import psutil
+import base64
+
+def encode_embedding(vec: np.ndarray) -> str:
+    """
+    Encode a NumPy float32 vector into Base64 string.
+    """
+    return base64.b64encode(vec.tobytes()).decode("utf-8")
+
+
+def decode_embedding(b64_str: str) -> np.ndarray:
+    """
+    Decode a Base64 string back into a NumPy float32 vector.
+    """
+    arr = np.frombuffer(base64.b64decode(b64_str), dtype=np.float32)
+    return arr
 
 pyRAPL.setup()
 
@@ -23,8 +38,6 @@ TAG = "vector_db:  "
 PERMANENT_METADATA_FILE_PATH = 'permanent_metadata.json'
 TEMP_METADATA_FILE_PATH = 'temp_metadata.json'
 
-MEASURE_URL = "http://127.0.0.1:5030/measure"
-
 # PERMANENT_INDEX_FILE_PATH = 'multimodal_faiss_index.index'
 # TEMP_INDEX_FILE_PATH  = 'temp_index.index'
 
@@ -35,6 +48,11 @@ def load_metadata2(file_path):
         return []
     with open(file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
 
 
 # def load_faiss_index(index_file_path):
@@ -75,65 +93,78 @@ def store():
         chunk_indices = permanent_chunk_indices
         metadata_path = PERMANENT_METADATA_FILE_PATH
 
-    # Handle new topics
+
+    # --- Handle new topics ---
     for topic in new_topics:
         topic_name = topic["topic"]
         chunks = topic["chunks"]
 
-        clean_chunks = [{"text": c["text"]} for c in chunks]
+        # Encode topic embedding
+        topic_vec = embedding_function.encode([topic_name], convert_to_numpy=True)[0].astype("float32")  # CHANGED
+        topic_vec_b64 = encode_embedding(topic_vec)  # NEW
 
-        metadata.append({"topic": topic_name, "chunks": clean_chunks})
+        # Encode chunk embeddings
+        chunk_texts = [c["text"] for c in chunks]  # CHANGED
+        chunk_vecs = embedding_function.encode(chunk_texts, convert_to_numpy=True).astype("float32")  # CHANGED
 
-        # Topic embedding
-        topic_embedding = embedding_function.encode([topic_name], convert_to_numpy=True).astype("float32")
-
-        if topic_index is None:
-            dim = topic_embedding.shape[-1]
-            topic_index = faiss.IndexFlatL2(dim)
-        topic_index.add(topic_embedding)
-
-        # Chunk embedding
-        chunk_texts = [c["text"] for c in chunks]
-        chunk_embs = embedding_function.encode(chunk_texts, convert_to_numpy=True).astype("float32")
-
-        dim = chunk_embs.shape[1]
+        dim = chunk_vecs.shape[1]
         chunk_index = faiss.IndexFlatL2(dim)
-        chunk_index.add(chunk_embs)
+        chunk_index.add(chunk_vecs)
         chunk_indices.append(chunk_index)
 
-        for c in chunks:
-            data_from_last_uploaded_file.append(c["text"])
-    
-    # Handle existing topics
+        # Build metadata entry with Base64 embeddings
+        topic_entry = {  # NEW
+            "topic": topic_name,
+            "topic_embedding_b64": topic_vec_b64,  # NEW
+            "chunks": []  # NEW
+        }  # NEW
+
+        for text, vec in zip(chunk_texts, chunk_vecs):  # NEW
+            topic_entry["chunks"].append({  # NEW
+                "text": text,
+                "embedding_b64": encode_embedding(vec)  # NEW
+            })  # NEW
+            data_from_last_uploaded_file.append(text)
+
+        metadata.append(topic_entry)  # CHANGED (now includes embeddings)
+
+        # Add topic embedding to FAISS index
+        if topic_index is None:
+            topic_index = faiss.IndexFlatL2(topic_vec.shape[0])
+        topic_index.add(topic_vec.reshape(1, -1))
+
+    # --- Handle existing topics ---
     for topic in existing_topics:
         topic_indx = topic["topic_indx"]
         chunks = topic["chunks"]
 
         if 0 <= topic_indx < len(metadata):
-            clean_chunks = [{"text": c["text"]} for c in chunks]
-            metadata[topic_indx]["chunks"].extend(clean_chunks)
+            new_texts = [c["text"] for c in chunks]  # NEW
+            new_vecs = embedding_function.encode(new_texts, convert_to_numpy=True).astype("float32")  # NEW
 
-            # Chunk embeddings
-            new_texts = [c["text"] for c in chunks]
-            new_embs = embedding_function.encode(new_texts, convert_to_numpy=True).astype("float32")
+            # Append new chunks with Base64 embeddings
+            for text, vec in zip(new_texts, new_vecs):  # NEW
+                metadata[topic_indx]["chunks"].append({  # NEW
+                    "text": text,
+                    "embedding_b64": encode_embedding(vec)  # NEW
+                })  # NEW
+                data_from_last_uploaded_file.append(text)
 
+            # Add embeddings to FAISS chunk index
             if chunk_indices[topic_indx] is None:
-                dim = new_embs.shape[1]
+                dim = new_vecs.shape[1]
                 chunk_indices[topic_indx] = faiss.IndexFlatL2(dim)
-            chunk_indices[topic_indx].add(new_embs)
-
-            for c in chunks:
-                data_from_last_uploaded_file.append(c["text"])
+            chunk_indices[topic_indx].add(new_vecs)
         else:
             return jsonify({
                 "status": "error",
                 "message": f"Invalid topic index {topic_indx}"
             }), 400
 
-    # Save metadata
-    save_metadata(metadata, metadata_path)
+    # Save updated metadata with Base64 embeddings
+    save_metadata(metadata, metadata_path)  # CHANGED
 
-    # Update globals so in-memory state matches
+    # Update global variables
     if database == "temp":
         temp_metadata = metadata
         temp_topic_index = topic_index
@@ -142,9 +173,6 @@ def store():
         permanent_metadata = metadata
         permanent_topic_index = topic_index
         permanent_chunk_indices = chunk_indices
-
-    if run_id:
-        report_to_measuring_server(start_time, run_id, "vector_db", meter)
 
     return jsonify({"status": "success", "message": "Data stored"})
 
@@ -213,8 +241,7 @@ def search():
             chunk_distances, chunk_idxs = permanent_chunk_indices[best_topic_idx].search(query_emb, k=3)
 
             for i, idx in enumerate(chunk_idxs[0]):
-
-                logging.info(f"Chunk: {permanent_metadata[best_topic_idx]["chunks"][idx]["text"]}")
+                logging.info(f"Chunk: {permanent_metadata[best_topic_idx]['chunks'][idx]['text']}")
                 logging.info(f"Distance: {chunk_distances[0][i] }")
                 logging.info("")
 
@@ -257,83 +284,46 @@ def search():
         logging.error(f"Error in search: {e}")
         return jsonify({"message": str(e)}), 500
         
-def report_to_measuring_server(start_time, run_id, service, meter):
-    """Report total processing duration to the measurement server."""
-    try:
-        end_time = time.time()
-        meter.end()
-        duration = end_time - start_time
-
-        energy_pkg = sum(meter.result.pkg) / 1_000_000
-        energy_dram = sum(meter.result.dram or []) / 1_000_000
-        energy_joules = energy_pkg + energy_dram
-
-        payload = {
-            "service": service,
-            "duration": duration,
-            "start_time": start_time,
-            "end_time": end_time,
-            "run_id": run_id,
-            "energy_joules": energy_joules
-        }
-
-        response = requests.post(MEASURE_URL, json=payload)
-
-        if response.ok:
-            logging.info(f"{TAG} Measurement reported successfully: {response.json()}")
-        else:
-            logging.error(f"{TAG} Failed to report measurement: {response.status_code} - {response.text}")
-
-    except Exception as e:
-        logging.error(f"{TAG} Could not contact measuring server: {e}")
-
 
 def init_store(metadata_path):
     """
     Initialize metadata list, topic index, and chunk indices
-    from given metadata (topics + chunks).
+    from given metadata file with Base64-encoded embeddings.
     """
     metadata = load_metadata2(metadata_path)
 
+    # If no metadata file exists or it's empty, return empty structures
     if not metadata:
         return [], None, []
 
-    # Topics 
-    topic_names = [entry["topic"] for entry in metadata]
-    if not topic_names:
+    # If Base64 embeddings don't exist yet (old format), return metadata only
+    if "topic_embedding_b64" not in metadata[0]:
         return metadata, None, []
 
-    # Compute topic embeddings in one batch
-    topic_embeddings = embedding_function.encode(
-        topic_names, convert_to_numpy=True
-    ).astype("float32")
+    # Determine embedding dimensionality from the first topic
+    first_vec = decode_embedding(metadata[0]["topic_embedding_b64"])
+    dim = len(first_vec)
 
-    dim = topic_embeddings.shape[1]
+    # Build FAISS topic index
+    topic_embeddings = np.vstack([decode_embedding(t["topic_embedding_b64"]) for t in metadata])
     topic_index = faiss.IndexFlatL2(dim)
     topic_index.add(topic_embeddings)
 
-    # Chunks 
+    # Build FAISS chunk indices for each topic
     chunk_indices = []
     for topic in metadata:
         chunks = topic.get("chunks", [])
-        if not chunks:
+        if not chunks or "embedding_b64" not in chunks[0]:
             chunk_indices.append(None)
             continue
 
-        # Collect all texts in this topic
-        chunk_texts = [c["text"] for c in chunks]
-
-        # Compute embeddings
-        chunk_embs = embedding_function.encode(
-            chunk_texts, convert_to_numpy=True
-        ).astype("float32")
-
-        dim = chunk_embs.shape[1]
-        chunk_index = faiss.IndexFlatL2(dim)
-        chunk_index.add(chunk_embs)
-        chunk_indices.append(chunk_index)
+        chunk_embs = np.vstack([decode_embedding(c["embedding_b64"]) for c in chunks])
+        idx = faiss.IndexFlatL2(dim)
+        idx.add(chunk_embs)
+        chunk_indices.append(idx)
 
     return metadata, topic_index, chunk_indices
+
 
 permanent_metadata, permanent_topic_index, permanent_chunk_indices = init_store(PERMANENT_METADATA_FILE_PATH)
 

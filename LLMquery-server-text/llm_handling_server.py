@@ -19,6 +19,15 @@ import requests
 from flask import Flask, request, jsonify
 import logging
 import os
+import uuid
+import pyRAPL
+import psutil
+import time
+import threading
+
+from save_measurements import save
+
+pyRAPL.setup()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,10 +40,12 @@ def health():
 # Set the random seed for reproducibility
 torch.random.manual_seed(0)
 
-VECTOR_DB_URL = "http://vector_db_server:8000"
-# VECTOR_DB_URL = "http://127.0.0.1:8000"
-# INPUT_LAYER_URL = "http://situational_awareness_server:6501/process_user_question"
-SA_URL = "http://127.0.0.1:6501/process_extracted_texts"
+# INPUT_LAYER_URL = "http://situational_awareness:6501/process_user_question"
+
+# SA_URL = "http://127.0.0.1:6501/process_extracted_texts"
+SA_URL = "http://situational-awareness:6501/process_extracted_texts"
+
+# ---------------------
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "" # FOR TESTING. REMOVE IF WANT TO USE GPU.
 
@@ -83,7 +94,7 @@ Question: {question}
 PROMPT = PromptTemplate(
     template=prompt_template,
     input_variables=["context", "question"]
-) 
+)
 
 
 def clean_text(text):
@@ -147,6 +158,22 @@ def query_llm(generation_args, pipe, db_query_result, user_question):
 
 @app.route('/process_query', methods=['POST'])
 def process_query():
+    global cpu_values, ram_values, monitoring_ram, monitoring_cpu
+
+    start_time = time.time()
+    run_id = str(uuid.uuid4())
+
+    # --- Start energy measurement ---
+    meter = pyRAPL.Measurement(f"llm_text_{run_id}")
+    meter.begin()
+
+    monitoring_ram = True
+    monitoring_cpu = True
+    t = threading.Thread(target=monitor_usage, args=(0.1,), daemon=True)
+    t.start()
+
+    start_sa_monitoring_SA()
+
     try:
         user_question = request.json.get('question', '')
         if not user_question:
@@ -155,7 +182,11 @@ def process_query():
         logging.info(f"Received question: {user_question}")
 
         post_data = {'question': user_question}
-        response = requests.post("http://127.0.0.1:8000/search", json=post_data)
+
+        # search_url = "http://127.0.0.1:8000/search"
+        search_url = "http://vector-db:8000/search"
+        
+        response = requests.post(search_url, json=post_data)
 
         if response.status_code != 200:
             return jsonify({'message': f"Vector DB error: {response.text}"}), response.status_code
@@ -179,23 +210,50 @@ def process_query():
 
         # return jsonify({'message': "OK"}), 200
 
-        # llm_result = query_llm(generation_args, pipe, db_result, user_question)
+        llm_result = query_llm(generation_args, pipe, db_result, user_question)
 
-        llm_result = "The color of the keyboard is black with white letters."
+        # llm_result = "The color of the keyboard is black with white letters."
+
+        print(f"LLM RESULT :{llm_result}")
 
         if not llm_result:
             return jsonify({'message': "I couldn't find relevant information for your query. Could you provide more details?"}), 200
 
-        payload = {"data": llm_result}
+        payload = {"data": llm_result, "run_id": run_id}
 
-        requests.post(SA_URL, json=payload)
+        try:
+            logging.info(f"Sending to {SA_URL}...")
+            response = requests.post(SA_URL, json=payload)
+            response.raise_for_status()
+            sa_result = response.json()
+
+            logging.info(f"Response from SA service: {sa_result}")
+
+        except Exception as e:
+            logging.error(f"Failed to communicate with SA service: {e}")
+            sa_result = {}
+
+        monitoring_ram = False
+        monitoring_cpu = False
+
+        t.join()
+
+        end_time = time.time()
+        meter.end()
+        duration = end_time - start_time
+
+        energy_pkg = sum(meter.result.pkg) / 1_000_000
+        energy_dram = sum(meter.result.dram or []) / 1_000_000
+        energy_joules = energy_pkg + energy_dram
+
+        save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id)
 
         return jsonify({'message': llm_result}), 200
 
     except Exception as e:
         logging.error(f"Error in process_query: {e}")
         return jsonify({'message': str(e)}), 500
-    
+
 
 @app.route('/question_about_last_uploaded_file', methods=['POST'])
 def question_about_last_uploaded_file():
@@ -206,7 +264,9 @@ def question_about_last_uploaded_file():
 
         logging.info(f"Received question: {user_question}")
 
-        url = "http://127.0.0.1:8000/get_data_from_last_uploaded_file"
+        # url = "http://127.0.0.1:8000/get_data_from_last_uploaded_file"
+        url = "http://vector-db:8000/get_data_from_last_uploaded_file"
+
         response = requests.get(url)
         response_json = response.json()
 
@@ -226,5 +286,79 @@ def question_about_last_uploaded_file():
         return jsonify({'message': str(e)}), 500
 
 
+# ---------------
+
+# SA_MONITOR_URL = "http://127.0.0.1:6501/start_monitoring"
+SA_MONITOR_URL = "http://situational-awareness:6501/start_monitoring"
+
+monitoring_cpu = False
+monitoring_ram = False
+
+cpu_values = []
+ram_values = []
+
+try:
+    with open("/data/memory_usage_gb.txt") as f:
+        mem_usage = float(f.read().strip())
+        print(f"Memory usage: {mem_usage}")
+except Exception as e:
+    mem_usage = None
+    print("Failed to read memory usage: ", e)
+
+
+def format_bytes(size):
+    power = 2**10
+    n = 0
+    power_labels = ['B', 'KB', 'MB', 'GB', 'TB']
+    while size > power and n < len(power_labels) - 1:
+        size /= power
+        n += 1
+    return f"{size:.2f} {power_labels[n]}"
+
+
+def monitor_usage(interval=0.1):
+    global cpu_values, ram_values, monitoring_ram, monitoring_cpu
+
+    cpu_values.clear()
+    ram_values.clear()
+
+    last_print_time = time.time()
+    cpu = 0.0  # Default value for printing
+
+    while monitoring_ram or monitoring_cpu:
+        if monitoring_ram:
+            mem = psutil.virtual_memory()
+            used_mem = mem.total - mem.available - mem_usage
+            ram_values.append(used_mem)
+        else:
+            used_mem = None
+
+        if monitoring_cpu:
+            cpu = psutil.cpu_percent(interval=None)
+            cpu_values.append(cpu)
+
+        now = time.time()
+        if now - last_print_time >= 1:
+            print(f"mem.total:{mem.total}")
+            print(f"mem.available:{mem.available}")
+            print(f"mem_usage:{mem_usage}")
+
+            # cpu_str = f"{cpu:.2f}%" if monitoring_cpu else "OFF"
+            # ram_str = format_bytes(used_mem) if used_mem else "OFF"
+            # logging.info(f"CPU: {cpu_str} | RAM: {ram_str}")
+            # last_print_time = now
+
+        time.sleep(interval)
+
+
+def start_sa_monitoring_SA():
+    try:
+        response = requests.post(SA_MONITOR_URL)
+        response.raise_for_status()
+        logging.info("Successfully started CPU/RAM monitoring in SA service.")
+    except Exception as e:
+        logging.error(f"Failed to start monitoring in SA service: {e}")
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5007, debug=False)

@@ -1,39 +1,92 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: edgemind-situational-awareness-server
+  name: situational-awareness
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: edgemind-situational-awareness-server
+      app: situational-awareness
   template:
     metadata:
       labels:
-        app: edgemind-situational-awareness-server
+        app: situational-awareness
     spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app: edgemind-vector-db-server
-            topologyKey: "kubernetes.io/hostname"
-      # nodeSelector:
-      #   computing-power: medium
+      # affinity:
+      #   podAntiAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #     - labelSelector:
+      #         matchLabels:
+      #           app: edgemind-vector-db-server
+            # topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        dedicated: db
       containers:
-      - name: edgemind-situational-awareness-server
-        image: registry.local:4000/edgemind-situational_awareness_server:latest
+      - name: situational-awareness
+        # image: registry.local:5000/situational_awareness:latest
+        image: localhost:5000/situational-awareness:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 6501
+        volumeMounts:
+        - name: rapl
+          mountPath: /sys/class/powercap
+          readOnly: true
+        - name: edgemind-data
+          mountPath: /data
+          readOnly: true
+        - name: crictl-bin
+          mountPath: /usr/local/bin/crictl
+        - name: containerd-socket-k3s
+          mountPath: /run/k3s/containerd/containerd.sock
+        - name: containerd-socket-default
+          mountPath: /run/containerd/containerd.sock
+        securityContext:
+          privileged: true
+          runAsUser: 0
+      - name: packet-capture
+        image: nicolaka/netshoot
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
+        command: ["sh", "-c", "sleep infinity"]
+        volumeMounts:
+        - name: captures
+          mountPath: /captures
+
+      volumes:
+      - name: rapl
+        hostPath:
+          path: /sys/class/powercap
+          type: Directory
+      - name: edgemind-data
+        hostPath:
+          path: /var/lib/edgemind
+          type: DirectoryOrCreate
+      - name: crictl-bin
+        hostPath:
+          path: /usr/local/bin/crictl
+          type: File
+      - name: containerd-socket-k3s
+        hostPath:
+          path: /run/k3s/containerd/containerd.sock
+          type: Socket
+      - name: containerd-socket-default
+        hostPath:
+          path: /run/containerd/containerd.sock
+          type: Socket
+      - name: captures
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: edgemind-situational-awareness-server
+  name: situational-awareness
 spec:
+  type: NodePort
   selector:
-    app: edgemind-situational-awareness-server
+    app: situational-awareness
   ports:
   - port: 6501
     targetPort: 6501
+    nodePort: 30501

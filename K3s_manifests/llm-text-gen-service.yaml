@@ -12,28 +12,62 @@ spec:
       labels:
         app: llm-text-gen-service
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: computing-power
-                operator: In
-                values:
-                - high 
+      # affinity:
+      #   nodeAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       nodeSelectorTerms:
+      #       - matchExpressions:
+      #         - key: computing-power
+      #           operator: In
+      #           values:
+      #           - high 
       containers:
       - name: llm-text-gen-service
-        image: registry.local:4000/edgemind-llm_query_server_text
+        image: localhost:5000/llm-text-gen-service:latest
         ports:
-        - containerPort: 5000
+        - containerPort: 5007
+        volumeMounts:
+        - name: llm-model
+          mountPath: /app/saved_LLM_model
+          readOnly: true
+        - name: rapl
+          mountPath: /sys/class/powercap
+          readOnly: true
+        - name: results
+          mountPath: /results
+        - name: edgemind-data
+          mountPath: /data
+          readOnly: true
+        securityContext:
+          privileged: true
+          runAsUser: 0
+      volumes:
+      - name: llm-model
+        hostPath:
+          path: /home/asdasd/6g/edgeMIND/models/saved_LLM_model
+          type: Directory
+      - name: rapl
+        hostPath:
+          path: /sys/class/powercap
+          type: Directory
+      - name: results
+        hostPath:
+          path: /home/asdasd/6g/edgeMIND/LLMquery-server-text/results
+          type: DirectoryOrCreate
+      - name: edgemind-data
+        hostPath:
+          path: /var/lib/edgemind
+          type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: llm-text-gen-service
 spec:
+  type: NodePort
   selector:
     app: llm-text-gen-service
   ports:
-  - port: 5000
-    targetPort: 5000
+  - port: 5007
+    targetPort: 5007
+    nodePort: 30500

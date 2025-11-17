@@ -2,3 +2,5 @@ Flask==3.1.0
 faiss-cpu==1.8.0.post1
 sentence-transformers==3.1.1
 gunicorn==23.0.0
+
+pyRAPL

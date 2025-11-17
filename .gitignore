@@ -5,7 +5,7 @@ __pycache__
 /edgeMIND-vector-db-server/vector_db_server__http.py
 /extracted_data/
 /model/
-Phi-3.5-vision
+phi_3_5_vision
 
 # Virtual environment(s)
 /env/
@@ -30,7 +30,7 @@ temp_metadata.txt
 
 # The LLM model files
 **/saved_LLM_model/
-/Input-side-server/Phi-3.5-vision/
+/Input-side-server/phi_3_5_vision/
 /LLMquery-server-text/models
 
 # From Input-side-server 
@@ -79,3 +79,7 @@ Audio
 pdfs
 Pictures
 RU_test_result_files
+
+.dockerignore
+results
+hae.py
