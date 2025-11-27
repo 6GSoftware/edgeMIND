@@ -20,7 +20,8 @@ spec:
       #           app: edgemind-vector-db-server
             # topologyKey: "kubernetes.io/hostname"
       nodeSelector:
-        dedicated: db
+        dedicated: ideapad
+        # dedicated: main
       containers:
       - name: situational-awareness
         # image: registry.local:5000/situational_awareness:latest

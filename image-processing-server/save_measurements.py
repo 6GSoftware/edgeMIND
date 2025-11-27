@@ -39,7 +39,20 @@ def save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id):
 
     # File path and headers
     csv_file_path = "/results/measurements.csv"
-    fieldnames = ["run_id", "duration_s", "energy_joules", "avg_cpu_percent", "avg_ram_mb"]
+    fieldnames = [
+    "run_id",
+    "duration_s",
+    "energy_joules",
+    "avg_cpu_percent",
+    "avg_ram_mb",
+    "upload_bandwidth_mbps",
+    "wifi_signal_dbm",
+    "total_packets",
+    "retransmissions",
+    "lost_segments",
+    "packet_loss_ratio",
+    "response"
+    ]
 
     # Create file if it doesn't exist and append data
     file_exists = os.path.isfile(csv_file_path)

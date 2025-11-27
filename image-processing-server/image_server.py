@@ -23,16 +23,10 @@ app = Flask(__name__)
 from image_processing import process_image_files
 from save_measurements import save
 
-HOST = "situational_awareness_server"
-
 TAG = "image_service: "
 
-if "SA_SERVICE_HOST" in os.environ:
-    SA_MONITOR_URL = f"http://{os.environ['SA_SERVICE_HOST']}:{os.environ['SA_SERVICE_PORT']}/start_monitoring"
-    SA_URL = f"http://{os.environ['SA_SERVICE_HOST']}:{os.environ['SA_SERVICE_PORT']}/process_extracted_texts"
-else:
-    SA_MONITOR_URL = "http://situational-awareness:6501/start_monitoring"
-    SA_URL = "http://situational-awareness:6501/process_extracted_texts"
+SA_MONITOR_URL = "http://situational-awareness:6501/start_monitoring"
+SA_URL = "http://situational-awareness:6501/process_extracted_texts"
 
 BASE_DIRECTORY = "./"
 IMAGE_DIRECTORY = os.path.join(BASE_DIRECTORY, "Pictures/")
@@ -50,27 +44,25 @@ def process_file(**kwargs):
 
     # Extract text from the file and save the exracted text to appropriate file.
     logging.info(f"{TAG} Processing image file...")
-    # processed_file_content = process_image_files(file_name)
+    processed_file_content = process_image_files(file_name)
 
     # Example data for debugging
-    processed_file_content = """Response for picture1234.jpg:
-    - The image shows a hand holding a white mug with a black floral pattern.
-    - Juuh elikkä joo eli juu.
-    - Tällastäpä tuolla joukossa ei oo sitten ollenkaan.
-    - There is a shadow cast by the mug on the wall.
-    - Eika tammosta.
-    - The mug is being held in a way that suggests it is being presented or shown off.
-    - There are no other objects or people visible in the image."""
+    # processed_file_content = """Response for picture1234.jpg:
+    # - The image shows a hand holding a white mug with a black floral pattern.
+    # - Juuh elikkä joo eli juu.
+    # - Tällastäpä tuolla joukossa ei oo sitten ollenkaan.
+    # - There is a shadow cast by the mug on the wall.
+    # - Eika tammosta.
+    # - The mug is being held in a way that suggests it is being presented or shown off.
+    # - There are no other objects or people visible in the image."""
 
-    total = 0.0
-    for i in range(10_000_000):
-        total += i ** 0.5
+    # total = 0.0
+    # for i in range(30_000_000):
+    #     total += i ** 0.5
 
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
 
     payload = {"data": processed_file_content}
-
-    return
 
     try:
         logging.info(f"{TAG} Sending extracted text to SA service at {SA_URL}...")
@@ -84,23 +76,23 @@ def process_file(**kwargs):
         logging.error(f"{TAG} Failed to communicate with SA service: {e}")
         sa_result = {}
 
-    monitoring_cpu = False
-    monitoring_ram = False
-    monitoring_signal = True
-
-    monitor_thread.join()
+    # monitor_thread.join()
 
     end_time = time.time()
     meter.end()
     duration = end_time - start_time
 
+    monitoring_ram = False
+    monitoring_cpu = False
+
     energy_pkg = sum(meter.result.pkg) / 1_000_000
     energy_dram = sum(meter.result.dram or []) / 1_000_000
     energy_joules = energy_pkg + energy_dram
 
-    avg_signal = sum(signal_values)/len(signal_values) if signal_values else None
+    print("SA RESULTS: ")
+    print(sa_result)
 
-    save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id, avg_signal)
+    save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id)
 
     logging.info(f"{TAG} Data sent to Situational Awareness and measuring server!\n")
 
@@ -122,12 +114,12 @@ def save_file(file_name, file):
     file.save(f"{file_path}")
     logging.info(f"{TAG} File saved successfully at: {file_path}")
 
-    return 'File uploaded and saved successfully'
+    return 'File uploaded and saved successfully!!'
 
 
 @app.route('/upload_image', methods=['POST'])
 def upload_file():
-    global monitoring_ram, monitoring_cpu, monitoring_signal
+    global monitoring_ram, monitoring_cpu
 
     start_time = time.time()
     run_id = str(uuid.uuid4())
@@ -138,9 +130,8 @@ def upload_file():
 
     monitoring_ram = True
     monitoring_cpu = True
-    monitoring_signal = True
 
-    t = threading.Thread(target=monitor_usage, args=(3,), daemon=True)
+    t = threading.Thread(target=monitor_usage, args=(0,), daemon=True)
     t.start()
 
     start_sa_monitoring_SA()
@@ -191,13 +182,9 @@ pyRAPL.setup()
 
 monitoring_cpu = False
 monitoring_ram = False
-monitoring_signal = False
 
 cpu_values = []
 ram_values = []
-
-signal_values = []
-
 
 try:
     with open("/data/memory_usage_gb.txt") as f:
@@ -223,18 +210,17 @@ def format_bytes(size):
     return f"{size:.2f} {power_labels[n]}"
 
 
-def monitor_usage(interval=3):
-    global cpu_values, ram_values, signal_values
-    global monitoring_ram, monitoring_cpu, monitoring_signal
+def monitor_usage(interval=0):
+    global cpu_values, ram_values
+    global monitoring_ram, monitoring_cpu
 
     cpu_values.clear()
     ram_values.clear()
-    signal_values.clear()
 
     last_print_time = time.time()
     cpu = 0.0
 
-    while monitoring_ram or monitoring_cpu or monitoring_signal:
+    while monitoring_ram or monitoring_cpu:
         if monitoring_ram:
             used_mem = fetch_used_memory()
             ram_values.append(used_mem)
@@ -245,17 +231,9 @@ def monitor_usage(interval=3):
             used_mem = None
 
         if monitoring_cpu:
-            cpu = psutil.cpu_percent(interval=None)
+            cpu = psutil.cpu_percent(interval=0)
             cpu_values.append(cpu)
 
-        # SIGNAL STRENGTH
-        if monitoring_signal:
-            strength = get_signal_strength()
-            if strength is not None:
-                signal_values.append(strength)
-
-
-        print(f"signal:{strength}")
         print(f"used_mem:{used_mem}")
         print(f"CPU:{cpu}")
 
@@ -293,30 +271,6 @@ def fetch_used_memory():
         return 0.0
 
 
-def get_signal_strength():
-    iface = get_wifi_interface()
-    if not iface:
-        return None
-    try:
-        out = subprocess.check_output(f"iw dev {iface} link", shell=True).decode()
-        for line in out.splitlines():
-            if "signal:" in line:
-                return int(line.split()[1])  # dBm value
-    except Exception:
-        return None
-    
-
-def get_wifi_interface():
-    try:
-        out = subprocess.check_output("iw dev", shell=True).decode()
-        for line in out.splitlines():
-            line = line.strip()
-            if line.startswith("Interface"):
-                return line.split()[1]  # returns wlp1s0, wlo1, wlan0, etc.
-    except Exception:
-        return None
-
-
 def start_sa_monitoring_SA():
     try:
         response = requests.post(SA_MONITOR_URL)
@@ -329,8 +283,7 @@ def start_sa_monitoring_SA():
 
 if __name__ == '__main__':
     # mp.set_start_method("spawn", force=True)
-    monitoring_cpu = True
-    monitoring_ram = True
-    monitoring_signal = True
-    threading.Thread(target=monitor_usage, args=(3.0,), daemon=True).start()
+    # monitoring_cpu = True
+    # monitoring_ram = True
+    # threading.Thread(target=monitor_usage, args=(3.0,), daemon=True).start()
     app.run(host="0.0.0.0", port=5002, threaded=True)

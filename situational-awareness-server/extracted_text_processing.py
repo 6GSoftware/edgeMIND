@@ -149,7 +149,7 @@ def format_bytes(size):
     return f"{size:.2f} {power_labels[n]}"
 
 
-def monitor_usage(interval=3):
+def monitor_usage(interval=0):
     global cpu_values, ram_values, monitoring_ram, monitoring_cpu
 
     cpu_values.clear()
@@ -159,6 +159,10 @@ def monitor_usage(interval=3):
     cpu = 0.0  # Default value for printing
 
     while monitoring_ram or monitoring_cpu:
+        if monitoring_cpu:
+            cpu = psutil.cpu_percent(interval=None)
+            cpu_values.append(cpu)
+
         if monitoring_ram:
             used_mem = fetch_used_memory()
             ram_values.append(used_mem)
@@ -167,10 +171,6 @@ def monitor_usage(interval=3):
             # ram_values.append(used_mem)
         else:
             used_mem = None
-
-        if monitoring_cpu:
-            cpu = psutil.cpu_percent(interval=None)
-            cpu_values.append(cpu)
 
         now = time.time()
         if now - last_print_time >= 1:
@@ -184,35 +184,68 @@ def monitor_usage(interval=3):
         time.sleep(interval)
 
 
-
 def fetch_used_memory():
-    cmd = (
-        "crictl --config=/dev/null "
-        "--runtime-endpoint unix:///run/k3s/containerd/containerd.sock "
-        "stats --output=table | "
-        "awk 'NR>1 && $4 != \"\" {"
-        "val=$4;"
-        "gsub(/[^0-9.]/, \"\", val);"
-        "if ($4 ~ /KiB/) sum+=val*1024;"
-        "else if ($4 ~ /MiB|MB/) sum+=val*1024*1024;"
-        "else if ($4 ~ /GiB|GB/) sum+=val*1024*1024*1024;"
-        "} END { printf \"%.2f\", sum/1024/1024; }'"
-    )
+    cmd = [
+        "crictl",
+        "--config=/dev/null",
+        "--runtime-endpoint", "unix:///run/k3s/containerd/containerd.sock",
+        "stats"
+    ]
 
     try:
-        output = subprocess.check_output(cmd, shell=True, text=True, timeout=5).strip()
-        if not output:
-            return 0.0
-        return float(output)
-    except subprocess.TimeoutExpired:
-        print("crictl stats timeout – skipped this cycle")
+        output = subprocess.check_output(cmd, shell=False, text=True).strip()
+    except Exception as e:
+        print(f"crictl failed: {e}")
         return 0.0
-    except subprocess.CalledProcessError as e:
-        print(f"crictl stats failed: {e}")
+
+    print("output:")
+    print(output)
+
+    lines = output.splitlines()
+    if len(lines) <= 1:
         return 0.0
-    except ValueError:
-        print(f"Could not parse memory output: {output!r}")
-        return 0.0
+
+    service_names = []
+    total_mem_bytes = 0
+
+    for line in lines[1:]:  # skip header
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+
+        name = parts[1]
+        mem_str = parts[3]   # e.g. "344.1kB"
+
+        service_names.append(name)
+        total_mem_bytes += parse_mem(mem_str)
+
+    total_mb = total_mem_bytes / (1024 * 1024)
+
+    print("Parsed names:", service_names)
+    print("Total MB:", total_mb)
+
+    return total_mb#, service_names
+    
+
+def parse_mem(mem_str: str) -> int:
+    mem_str = mem_str.strip()
+
+    match = re.match(r"([0-9.]+)\s*([A-Za-z]+)", mem_str)
+    if not match:
+        return 0
+
+    num_str, unit = match.groups()
+    num = float(num_str)
+    unit = unit.lower()
+
+    if unit in ("kb", "kib"):
+        return int(num * 1024)
+    if unit in ("mb", "mib"):
+        return int(num * 1024 * 1024)
+    if unit in ("gb", "gib"):
+        return int(num * 1024 * 1024 * 1024)
+
+    return 0
 
 
 @app.route('/start_monitoring', methods=['POST'])
@@ -220,7 +253,7 @@ def start_monitoring():
     global monitoring_ram
     
     monitoring_ram = True
-    t = threading.Thread(target=monitor_usage, args=(3,), daemon=True)
+    t = threading.Thread(target=monitor_usage, args=(0,), daemon=True)
     t.start()
 
     return jsonify({"status": "ok", "message": "RAM monitoring started"}), 200
@@ -244,8 +277,7 @@ except Exception as e:
         
 if __name__ == "__main__":
     # monitoring = True
-    # threading.Thread(target=monitor_usage, args=(0.1,), daemon=True).start()
-    monitoring_cpu = True
-    monitoring_ram = True
-    threading.Thread(target=monitor_usage, args=(3.0,), daemon=True).start()
+    # monitoring_cpu = True
+    # monitoring_ram = True
+    # threading.Thread(target=monitor_usage, args=(3.0,), daemon=True).start()
     app.run(host="0.0.0.0", port=6501, debug=False)

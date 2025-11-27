@@ -12,7 +12,11 @@ spec:
       labels:
         app: image-service
     spec:
-      shareProcessNamespace: true
+      hostNetwork: false
+      hostPID: true
+      nodeSelector:
+        dedicated: main
+        # dedicated: ideapad
       # affinity:
       #   podAntiAffinity:
       #     requiredDuringSchedulingIgnoredDuringExecution:
@@ -39,8 +43,8 @@ spec:
           readOnly: true 
         - name: crictl-bin
           mountPath: /usr/local/bin/crictl
-        - name: containerd-socket-k3s
-          mountPath: /run/k3s/containerd/containerd.sock
+        - name: containerd-k3s-dir
+          mountPath: /run/k3s/containerd
         - name: containerd-socket-default
           mountPath: /run/containerd/containerd.sock
         securityContext:
@@ -77,13 +81,13 @@ spec:
 
       - name: crictl-bin
         hostPath:
-          path: /usr/local/bin/crictl
+          path: /var/lib/rancher/k3s/data/current/bin/crictl
           type: File
 
-      - name: containerd-socket-k3s
+      - name: containerd-k3s-dir
         hostPath:
-          path: /run/k3s/containerd/containerd.sock
-          type: Socket
+          path: /run/k3s/containerd
+          type: Directory
 
       - name: containerd-socket-default
         hostPath:

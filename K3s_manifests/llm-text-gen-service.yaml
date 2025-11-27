@@ -21,6 +21,8 @@ spec:
       #           operator: In
       #           values:
       #           - high 
+      nodeSelector:
+        dedicated: main
       containers:
       - name: llm-text-gen-service
         image: localhost:5000/llm-text-gen-service:latest
@@ -41,7 +43,19 @@ spec:
         securityContext:
           privileged: true
           runAsUser: 0
+      - name: packet-capture
+        image: nicolaka/netshoot
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
+        command: ["sh", "-c", "sleep infinity"]
+        volumeMounts:
+        - name: captures
+          mountPath: /captures
+
       volumes:
+      - name: captures
+        emptyDir: {}
       - name: llm-model
         hostPath:
           path: /home/asdasd/6g/edgeMIND/models/saved_LLM_model
