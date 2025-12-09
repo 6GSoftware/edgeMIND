@@ -11,6 +11,9 @@ import pyRAPL
 import psutil
 import base64
 
+IN_K3S = os.path.exists("/var/run/secrets/kubernetes.io/serviceaccount/token")
+print(f"IN_K3S: {IN_K3S}")
+
 def encode_embedding(vec: np.ndarray) -> str:
     """
     Encode a NumPy float32 vector into Base64 string.
@@ -35,8 +38,12 @@ embedding_function = SentenceTransformer('all-mpnet-base-v2')
 
 TAG = "vector_db:  "
 
-PERMANENT_METADATA_FILE_PATH = 'permanent_metadata.json'
-TEMP_METADATA_FILE_PATH = 'temp_metadata.json'
+if IN_K3S == False:
+    PERMANENT_METADATA_FILE_PATH = 'permanent_metadata.json'
+    TEMP_METADATA_FILE_PATH = 'temp_metadata.json'
+else:
+    PERMANENT_METADATA_FILE_PATH = "/results2/metadata/permanent_metadata.json"
+    TEMP_METADATA_FILE_PATH = "/results2/metadata/temp_metadata.json"
 
 # PERMANENT_INDEX_FILE_PATH = 'multimodal_faiss_index.index'
 # TEMP_INDEX_FILE_PATH  = 'temp_index.index'
@@ -215,6 +222,7 @@ def get_data_from_last_uploaded_file():
         return jsonify({"error": "No files have been uploaded yet!"}), 404
 
 
+
 @app.route('/search', methods=['POST'])
 def search():
     try:
@@ -224,15 +232,16 @@ def search():
         if not question:
             return jsonify({"status": "error", "message": "No question provided"}), 400
 
-        logging.info(f"Received question: {question}")
+        print(f"Received question: {question}")
 
         # Encode the query
         query_emb = embedding_function.encode([question]).astype("float32")
 
-        threshold = 1.0
+        threshold = 1.5
 
         permanent_results = []
         if permanent_topic_index is not None and permanent_metadata:
+
             # Find the best matching permanent topic
             _, topic_indices = permanent_topic_index.search(query_emb, k=1)
             best_topic_idx = int(topic_indices[0][0])
@@ -241,17 +250,23 @@ def search():
             chunk_distances, chunk_idxs = permanent_chunk_indices[best_topic_idx].search(query_emb, k=3)
 
             for i, idx in enumerate(chunk_idxs[0]):
-                logging.info(f"Chunk: {permanent_metadata[best_topic_idx]['chunks'][idx]['text']}")
-                logging.info(f"Distance: {chunk_distances[0][i] }")
-                logging.info("")
 
-                             
-                if idx == -1 or chunk_distances[0][i] > threshold:
+                if idx == -1:
+                    continue  # FAISS placeholder for "no result"
+
+                chunk_text = permanent_metadata[best_topic_idx]['chunks'][idx]['text']
+                distance = float(chunk_distances[0][i])
+
+                print("\n----- PERMANENT RESULT -----")
+                print(f"PERM CHUNK: {chunk_text}")
+                print(f"PERM DISTANCE: {distance}")
+                print("----------------------------\n")
+
+                if distance > threshold:
                     continue
-                try:
-                    permanent_results.append(permanent_metadata[best_topic_idx]["chunks"][idx]["text"])
-                except Exception as e:
-                    logging.error(f"Failed to fetch permanent chunk idx={idx}: {e}")
+
+                permanent_results.append(chunk_text)
+
 
         temp_results = []
         if temp_topic_index is not None and temp_metadata:
@@ -264,12 +279,25 @@ def search():
             chunk_distances, chunk_idxs = temp_chunk_indices[best_topic_idx].search(query_emb, k=3)
 
             for i, idx in enumerate(chunk_idxs[0]):
-                if idx == -1 or chunk_distances[0][i] > threshold:
+
+                print(f"IDXS: {idx}")
+
+                if idx == -1:
+                    continue  # FAISS placeholder
+
+                chunk_text = temp_metadata[best_topic_idx]['chunks'][idx]['text']
+                distance = float(chunk_distances[0][i])
+
+                print("\n------- TEMP RESULT -------")
+                print(f"TEMP CHUNK: {chunk_text}")
+                print(f"TEMP DISTANCE: {distance}")
+                print("---------------------------\n")
+
+                if distance > threshold:
                     continue
-                try:
-                    temp_results.append(temp_metadata[best_topic_idx]["chunks"][idx]["text"])
-                except Exception as e:
-                    logging.error(f"Failed to fetch temp chunk idx={idx}: {e}")
+
+                temp_results.append(chunk_text)
+
 
         payload = {
             "permanent_chunks": permanent_results,
@@ -283,6 +311,87 @@ def search():
     except Exception as e:
         logging.error(f"Error in search: {e}")
         return jsonify({"message": str(e)}), 500
+
+
+# @app.route('/search', methods=['POST'])
+# def search():
+#     try:
+#         request_data = request.get_json()
+#         question = request_data.get('question', '')
+
+#         if not question:
+#             return jsonify({"status": "error", "message": "No question provided"}), 400
+
+#         logging.info(f"Received question: {question}")
+
+#         # Encode the query
+#         query_emb = embedding_function.encode([question]).astype("float32")
+
+#         threshold = 1.0
+
+#         permanent_results = []
+#         if permanent_topic_index is not None and permanent_metadata:
+#             # Find the best matching permanent topic
+#             _, topic_indices = permanent_topic_index.search(query_emb, k=1)
+#             best_topic_idx = int(topic_indices[0][0])
+
+#             # Search inside the chosen permanent topic's chunks
+#             chunk_distances, chunk_idxs = permanent_chunk_indices[best_topic_idx].search(query_emb, k=3)
+
+#             for i, idx in enumerate(chunk_idxs[0]):
+
+#                 logging.info("")
+
+#                 print(f"PERM CHUNK: {permanent_metadata[best_topic_idx]['chunks'][idx]['text']}")
+#                 print(f"PERM DISTANCE: {chunk_distances[0][i]}")
+
+#                 logging.info("")
+                             
+#                 if idx == -1 or chunk_distances[0][i] > threshold:
+#                     continue
+#                 try:
+#                     permanent_results.append(permanent_metadata[best_topic_idx]["chunks"][idx]["text"])
+#                 except Exception as e:
+#                     logging.error(f"Failed to fetch permanent chunk idx={idx}: {e}")
+
+#         temp_results = []
+#         if temp_topic_index is not None and temp_metadata:
+
+#             # Find the best matching temp topic
+#             _, topic_indices = temp_topic_index.search(query_emb, k=1)
+#             best_topic_idx = int(topic_indices[0][0])
+
+#             # Search inside the chosen temp topic's chunks
+#             chunk_distances, chunk_idxs = temp_chunk_indices[best_topic_idx].search(query_emb, k=3)
+
+#             for i, idx in enumerate(chunk_idxs[0]):
+
+#                 logging.info("")
+
+#                 print(f"TEMP CHUNK: {temp_metadata[best_topic_idx]['chunks'][idx]['text']}")
+#                 print(f"TEMP DISTANCE: {chunk_distances[0][i]}")
+
+#                 logging.info("")
+
+#                 if idx == -1 or chunk_distances[0][i] > threshold:
+#                     continue
+#                 try:
+#                     temp_results.append(temp_metadata[best_topic_idx]["chunks"][idx]["text"])
+#                 except Exception as e:
+#                     logging.error(f"Failed to fetch temp chunk idx={idx}: {e}")
+
+#         payload = {
+#             "permanent_chunks": permanent_results,
+#             "temp_chunks": temp_results
+#         }
+
+#         logging.info(f"Payload: {payload}")
+
+#         return jsonify(payload), 200
+    
+#     except Exception as e:
+#         logging.error(f"Error in search: {e}")
+#         return jsonify({"message": str(e)}), 500
         
 
 def init_store(metadata_path):

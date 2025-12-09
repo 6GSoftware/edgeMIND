@@ -266,14 +266,6 @@ def stop_monitoring():
     monitoring_ram = False
     return jsonify({"status": "ok", "message": "Monitoring stopped"}), 200
 
-try:
-    with open("/data/memory_usage_gb.txt") as f:
-        mem_usage = float(f.read().strip())
-        print(f"Memory usage: {mem_usage}")
-except Exception as e:
-    mem_usage = None
-    print("Failed to read memory usage: ", e)
-
         
 if __name__ == "__main__":
     # monitoring = True

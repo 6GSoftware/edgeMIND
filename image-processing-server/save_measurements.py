@@ -1,6 +1,8 @@
 import csv
 import os
 
+IN_K3S = os.path.exists("/var/run/secrets/kubernetes.io/serviceaccount/token")
+
 def save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id):
     sa_cpu_values = sa_result.get("cpu_values", [])
     sa_ram_values = sa_result.get("ram_values", [])
@@ -35,23 +37,26 @@ def save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id):
         "energy_joules": energy_total,
         "avg_cpu_percent": avg_cpu,
         "avg_ram_mb": avg_ram_mb,
+        # Leave the rest empty for Bash:
     }
 
     # File path and headers
-    csv_file_path = "/results/measurements.csv"
+    csv_file_path = "/results2/measurements.csv"
     fieldnames = [
-    "run_id",
-    "duration_s",
-    "energy_joules",
-    "avg_cpu_percent",
-    "avg_ram_mb",
-    "upload_bandwidth_mbps",
-    "wifi_signal_dbm",
-    "total_packets",
-    "retransmissions",
-    "lost_segments",
-    "packet_loss_ratio",
-    "response"
+        "run_id",
+        "duration_s",
+        "energy_joules",
+        "avg_cpu_percent",
+        "avg_ram_mb",
+        # Bash fills the rest:
+        "wifi_signal_dbm",
+        "image_packets",
+        "image_retransmissions",
+        "image_loss_percent",
+        "sa_packets",
+        "sa_retransmissions",
+        "sa_loss_percent",
+        "response"
     ]
 
     # Create file if it doesn't exist and append data

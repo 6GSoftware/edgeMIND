@@ -10,103 +10,99 @@ After that the summary is saved in the texts_Image.txt file and the name of the 
 processed_images.txt file to prevent processing the same file again.
 """
 
-# I have been working here at the University of Jyväskylä for a bit over a year,
-# and for the past six months I have been working on the 6G project.
-
-# Currently, I’m focusing on developing a type of framework that proposes a new technique
-# to improve RAG searches by introducing a new way to store and retrieve data for LLM inferences.
-
-# However, I’m not very familiar with the actual research perspective of the project,
-# since my work is mostly related to technical and practical tasks, like programming and
-# setting up Kubernetes clusters and similar things.
-
-# That’s also my main interest for the future too, so I’m basically here to listen
-# and see if there’s any programming-related work I could help with.
-
-
 from PIL import Image
 import os
-#from transformers import AutoModelForCausalLM, AutoProcessor
 import logging
 
 logging.basicConfig(level=logging.INFO)
-
-#from dotenv import load_dotenv
-
-# Loads the environment variables from the .env file
-#load_dotenv()
 
 from download_phi_3_5_vision import model, processor
 
 TAG = "image_processing:  "
 
-# I don't have very specific preferences about what i could working on.
-# Most of my experience is in back end python programming.
-# 
-# 
-# 
-# 
-# something relater to making technologies more accessible or easier to
-# use would be interesting. 
-
-
-# Define the folder containing images and the output text file
 image_folder = r'./Pictures'
 
-def process_image_files(new_file):
 
-    # Process each image individually
-    if new_file.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
-        file_path = os.path.join(image_folder, new_file)
+def process_image_files(image=None, filename=None):
+    """
+    Processes an image either from:
+    - a PIL Image object (`image`)
+    - or a filename (`filename`) located in `image_folder`
+    """
 
-        # Open the image
+    if isinstance(image, str) and filename is None:
+        filename = image
+        image = None
+
+    # New way: image is a PIL Image object
+    if image is not None:
+        new_file = filename or "uploaded_image"
+        logging.info(f"{TAG} Processing image directly (PIL object)")
+
+    # Old way: filename is provided
+    elif filename is not None:
+        file_path = os.path.join(image_folder, filename)
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(file_path)
+
         image = Image.open(file_path)
+        new_file = filename
+        logging.info(f"{TAG} Processing image from disk: {file_path}")
 
-        # Always use image_id 1 for single images
-        placeholder = f"<|image_1|>\n"  # Set the image_id to 1 for each image
+    else:
+        raise ValueError("You must provide either a PIL image or a filename")
 
-        # Define the message for summarization
-        messages = [
-            {"role": "user", 
-        "content": f"{placeholder}Extract all details from the image exactly as they appear. Then, create a concise bulleted list summarizing the key points."}
-        ]
+    # Always use image_id 1 for single images
+    placeholder = f"<|image_1|>\n"
 
-        # Prepare the prompt
-        prompt = processor.tokenizer.apply_chat_template(
-            messages, 
-            tokenize=False, 
-            add_generation_prompt=True
-        )
-
-        # Preprocess the input
-        inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
-
-        # Define generation arguments
-        generation_args = {
-            "max_new_tokens": 1000,
-            "temperature": 0.0,
-            "do_sample": False,
+    # Define the message for summarization
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"{placeholder}Extract all details from the image exactly as they appear. "
+                "Then, create a concise bulleted list summarizing the key points."
+            )
         }
+    ]
 
-        # Generate the output
-        generate_ids = model.generate(
-            **inputs,
-            eos_token_id=processor.tokenizer.eos_token_id,
-            **generation_args
-        )
+    # Prepare the prompt
+    prompt = processor.tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
 
-        # Remove input tokens from generated IDs
-        generate_ids = generate_ids[:, inputs['input_ids'].shape[1]:]
+    # Preprocess the input
+    inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
 
-        # Decode the generated IDs into text
-        response = processor.batch_decode(
-            generate_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False
-        )[0]
+    # Define generation arguments
+    generation_args = {
+        "max_new_tokens": 1000,
+        "temperature": 0.0,
+        "do_sample": False,
+    }
 
-        processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
+    # Generate the output
+    generate_ids = model.generate(
+        **inputs,
+        eos_token_id=processor.tokenizer.eos_token_id,
+        **generation_args
+    )
 
-        logging.info(f"{TAG} Processed and saved response for {new_file}")
+    # Remove input tokens from generated IDs
+    generate_ids = generate_ids[:, inputs['input_ids'].shape[1]:]
 
-        return processed_file_content
+    # Decode the generated IDs into text
+    response = processor.batch_decode(
+        generate_ids,
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False
+    )[0]
+
+    processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
+
+    logging.info(f"{TAG} Processed and saved response for {new_file}")
+
+    return processed_file_content

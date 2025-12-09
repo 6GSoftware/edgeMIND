@@ -1,77 +1,74 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: image-service   # replace with a custom name for the service
+  name: image-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: image-service    # here (and below) use the same name as above for metadata.name
+      app: image-service
   template:
     metadata:
       labels:
         app: image-service
     spec:
-      hostNetwork: false
-      hostPID: true
       nodeSelector:
-        dedicated: main
-        # dedicated: ideapad
-      # affinity:
-      #   podAntiAffinity:
-      #     requiredDuringSchedulingIgnoredDuringExecution:
-      #     - labelSelector:
-      #         matchLabels:
-      #           app: image-service
-      #       topologyKey: "kubernetes.io/hostname"
-      #nodeSelector:
-      #  <KEY>: <VALUE>  # Here put any label + its value you have given to any node(s)
+        dedicated: gpu
+
       containers:
+      # --- MAIN CONTAINER ---
       - name: image-service
-        image: localhost:5000/image-service:latest
+        image: registry.local:5000/image-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5002
+
+        securityContext:
+          privileged: true          # REQUIRED for crictl to use containerd.sock
+          runAsUser: 0
+          capabilities:
+            add:
+              - NET_ADMIN
+              - NET_RAW
+
         volumeMounts:
         - name: rapl
           mountPath: /sys/class/powercap
           readOnly: true
-        - name: results
-          mountPath: /results
+        - name: results2
+          mountPath: /results2
         - name: edgemind-data
           mountPath: /data
-          readOnly: true 
+          readOnly: true
         - name: crictl-bin
           mountPath: /usr/local/bin/crictl
         - name: containerd-k3s-dir
           mountPath: /run/k3s/containerd
-        - name: containerd-socket-default
+        - name: containerd-socket
           mountPath: /run/containerd/containerd.sock
-        securityContext:
-          privileged: true
-          runAsUser: 0
+
+      # --- PACKET CAPTURE SIDECAR ---
       - name: packet-capture
         image: nicolaka/netshoot
         securityContext:
           capabilities:
-            add: ["NET_ADMIN", "NET_RAW"]
+            add:
+              - NET_ADMIN
+              - NET_RAW
         command: ["sh", "-c", "sleep infinity"]
         volumeMounts:
         - name: captures
           mountPath: /captures
 
       volumes:
-      - name: captures
-        emptyDir: {}
-
       - name: rapl
         hostPath:
           path: /sys/class/powercap
           type: Directory
 
-      - name: results
+      - name: results2
         hostPath:
-          path: /home/asdasd/6g/edgeMIND/image-processing-server/results
+          path: /home/sixgsoftware/Documents/eval-files
           type: DirectoryOrCreate
 
       - name: edgemind-data
@@ -79,6 +76,7 @@ spec:
           path: /var/lib/edgemind
           type: DirectoryOrCreate
 
+      # crictl & containerd mounts (added back)
       - name: crictl-bin
         hostPath:
           path: /var/lib/rancher/k3s/data/current/bin/crictl
@@ -89,20 +87,10 @@ spec:
           path: /run/k3s/containerd
           type: Directory
 
-      - name: containerd-socket-default
+      - name: containerd-socket
         hostPath:
           path: /run/containerd/containerd.sock
           type: Socket
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: image-service
-spec:
-  type: NodePort
-  selector:
-    app: image-service
-  ports:
-  - port: 5002          # replace with the container's external port
-    targetPort: 5002    # replace with the container's internal port
-    nodePort: 30806
+
+      - name: captures
+        emptyDir: {}

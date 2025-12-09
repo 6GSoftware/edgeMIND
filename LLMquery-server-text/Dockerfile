@@ -7,9 +7,11 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+RUN pip install --no-cache-dir "accelerate>=0.26.0"
 
 RUN pip install --no-cache-dir psutil
+
+COPY . .
 
 ENV PYTHONUNBUFFERED=1
 

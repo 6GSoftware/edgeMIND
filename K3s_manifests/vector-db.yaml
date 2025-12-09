@@ -13,14 +13,19 @@ spec:
         app: vector-db
     spec:
       nodeSelector:
-        dedicated: main
+        dedicated: gpu
       containers:
       - name: vector-db
-        image: localhost:5000/vector-db:latest
+        image: registry.local:5000/vector-db:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
         volumeMounts:
+
+        - name: results2
+          mountPath: /results2
+
+
         - name: rapl
           mountPath: /sys/class/powercap
           readOnly: true
@@ -41,6 +46,12 @@ spec:
           mountPath: /captures
           
       volumes:
+
+      - name: results2
+        hostPath:
+          path: /home/sixgsoftware/Documents/eval-files
+          type: DirectoryOrCreate
+
       - name: rapl
         hostPath:
           path: /sys/class/powercap

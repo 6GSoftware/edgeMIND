@@ -22,21 +22,32 @@ spec:
       #           values:
       #           - high 
       nodeSelector:
-        dedicated: main
+        dedicated: gpu
       containers:
       - name: llm-text-gen-service
-        image: localhost:5000/llm-text-gen-service:latest
+        image: registry.local:5000/llm-text-gen-service:latest
         ports:
         - containerPort: 5007
         volumeMounts:
-        - name: llm-model
-          mountPath: /app/saved_LLM_model
+
+        - name: crictl-bin
+          mountPath: /usr/local/bin/crictl
+        - name: containerd-k3s-dir
+          mountPath: /run/k3s/containerd
+        - name: containerd-socket
+          mountPath: /run/containerd/containerd.sock
+
+        - name: results2
+          mountPath: /results2
+
+        - name: llm-models
+          mountPath: /models
           readOnly: true
+
         - name: rapl
           mountPath: /sys/class/powercap
           readOnly: true
-        - name: results
-          mountPath: /results
+
         - name: edgemind-data
           mountPath: /data
           readOnly: true
@@ -54,20 +65,40 @@ spec:
           mountPath: /captures
 
       volumes:
+      
+      - name: crictl-bin
+        hostPath:
+          path: /var/lib/rancher/k3s/data/current/bin/crictl
+          type: File
+
+      - name: containerd-k3s-dir
+        hostPath:
+          path: /run/k3s/containerd
+          type: Directory
+
+      - name: containerd-socket
+        hostPath:
+          path: /run/containerd/containerd.sock
+          type: Socket
+
+      - name: results2
+        hostPath:
+          path: /home/sixgsoftware/Documents/eval-files
+          type: DirectoryOrCreate
+
       - name: captures
         emptyDir: {}
-      - name: llm-model
+
+      - name: llm-models
         hostPath:
-          path: /home/asdasd/6g/edgeMIND/models/saved_LLM_model
+          path: /home/sixgsoftware/6g/models
           type: Directory
+          
       - name: rapl
         hostPath:
           path: /sys/class/powercap
           type: Directory
-      - name: results
-        hostPath:
-          path: /home/asdasd/6g/edgeMIND/LLMquery-server-text/results
-          type: DirectoryOrCreate
+
       - name: edgemind-data
         hostPath:
           path: /var/lib/edgemind

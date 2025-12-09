@@ -13,7 +13,7 @@ RUN CRICTL_VERSION="v1.30.0" && \
     | tar zx -C /usr/local/bin && \
     chmod +x /usr/local/bin/crictl
 
-RUN apt-get update && apt-get install -y tcpdump && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y tcpdump procps && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
