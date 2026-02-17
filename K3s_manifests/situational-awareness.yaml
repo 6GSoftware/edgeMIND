@@ -20,12 +20,11 @@ spec:
       #           app: edgemind-vector-db-server
             # topologyKey: "kubernetes.io/hostname"
       nodeSelector:
-        dedicated: gpu
-        # dedicated: main
+        role: worker
+        # image-node: "true"
       containers:
       - name: situational-awareness
-        # image: registry.local:5000/situational_awareness:latest
-        image: registry.local:5000/situational-awareness:latest
+        image: registry.local:4000/situational-awareness:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 6501

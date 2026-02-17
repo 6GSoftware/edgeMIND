@@ -12,22 +12,34 @@ spec:
       labels:
         app: llm-text-gen-service
     spec:
-      # affinity:
-      #   nodeAffinity:
-      #     requiredDuringSchedulingIgnoredDuringExecution:
-      #       nodeSelectorTerms:
-      #       - matchExpressions:
-      #         - key: computing-power
-      #           operator: In
-      #           values:
-      #           - high 
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - llm-text-gen-service
+                topologyKey: kubernetes.io/hostname 
       nodeSelector:
-        dedicated: gpu
+        role: worker
+        # image-node: "true"
       containers:
       - name: llm-text-gen-service
-        image: registry.local:5000/llm-text-gen-service:latest
+        image: registry.local:4000/llm-text-gen-service:latest
         ports:
         - containerPort: 5007
+
+        # resources:
+        #   requests:
+        #     cpu: "500m"
+        #     memory: "500Mi"
+        #   limits:
+        #     cpu: "2"
+
         volumeMounts:
 
         - name: crictl-bin
@@ -37,9 +49,6 @@ spec:
         - name: containerd-socket
           mountPath: /run/containerd/containerd.sock
 
-        - name: results2
-          mountPath: /results2
-
         - name: llm-models
           mountPath: /models
           readOnly: true
@@ -48,12 +57,6 @@ spec:
           mountPath: /sys/class/powercap
           readOnly: true
 
-        - name: edgemind-data
-          mountPath: /data
-          readOnly: true
-        securityContext:
-          privileged: true
-          runAsUser: 0
       - name: packet-capture
         image: nicolaka/netshoot
         securityContext:
@@ -81,28 +84,18 @@ spec:
           path: /run/containerd/containerd.sock
           type: Socket
 
-      - name: results2
-        hostPath:
-          path: /home/sixgsoftware/Documents/eval-files
-          type: DirectoryOrCreate
-
       - name: captures
         emptyDir: {}
 
       - name: llm-models
         hostPath:
-          path: /home/sixgsoftware/6g/models
+          path: /var/lib/llm-models/models
           type: Directory
           
       - name: rapl
         hostPath:
           path: /sys/class/powercap
           type: Directory
-
-      - name: edgemind-data
-        hostPath:
-          path: /var/lib/edgemind
-          type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service
@@ -110,9 +103,34 @@ metadata:
   name: llm-text-gen-service
 spec:
   type: NodePort
+  # externalTrafficPolicy: Local
   selector:
     app: llm-text-gen-service
   ports:
   - port: 5007
     targetPort: 5007
     nodePort: 30500
+---
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: llm-text-gen-service
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: llm-text-gen-service
+#   minReplicas: 1
+#   maxReplicas: 2
+#   behavior:
+#     scaleUp:
+#       stabilizationWindowSeconds: 60
+#     scaleDown:
+#       stabilizationWindowSeconds: 300
+#   metrics:
+#   - type: Resource
+#     resource:
+#       name: cpu
+#       target:
+#         type: Utilization
+#         averageUtilization: 30

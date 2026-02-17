@@ -28,7 +28,7 @@ def decode_embedding(b64_str: str) -> np.ndarray:
     arr = np.frombuffer(base64.b64decode(b64_str), dtype=np.float32)
     return arr
 
-pyRAPL.setup()
+# pyRAPL.setup()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,8 +42,8 @@ if IN_K3S == False:
     PERMANENT_METADATA_FILE_PATH = 'permanent_metadata.json'
     TEMP_METADATA_FILE_PATH = 'temp_metadata.json'
 else:
-    PERMANENT_METADATA_FILE_PATH = "/results2/metadata/permanent_metadata.json"
-    TEMP_METADATA_FILE_PATH = "/results2/metadata/temp_metadata.json"
+    PERMANENT_METADATA_FILE_PATH = "permanent_metadata.json"
+    TEMP_METADATA_FILE_PATH = "temp_metadata.json"
 
 # PERMANENT_INDEX_FILE_PATH = 'multimodal_faiss_index.index'
 # TEMP_INDEX_FILE_PATH  = 'temp_index.index'
@@ -82,8 +82,8 @@ def store():
 
     start_time = time.time()
 
-    meter = pyRAPL.Measurement(f"vector_db_{run_id}")
-    meter.begin()
+    # meter = pyRAPL.Measurement(f"vector_db_{run_id}")
+    # meter.begin()
 
     new_topics = data.get("new_topics", [])
     existing_topics = data.get("existing_topics", [])

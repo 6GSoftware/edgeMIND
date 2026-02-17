@@ -13,51 +13,14 @@ spec:
         app: vector-db
     spec:
       nodeSelector:
-        dedicated: gpu
+        role: worker
+        # image-node: "true"
       containers:
       - name: vector-db
-        image: registry.local:5000/vector-db:latest
+        image: registry.local:4000/vector-db:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        volumeMounts:
-
-        - name: results2
-          mountPath: /results2
-
-
-        - name: rapl
-          mountPath: /sys/class/powercap
-          readOnly: true
-        - name: captures
-          mountPath: /captures
-        securityContext:
-          privileged: true
-          runAsUser: 0
-
-      - name: packet-capture
-        image: nicolaka/netshoot
-        securityContext:
-          capabilities:
-            add: ["NET_ADMIN", "NET_RAW"]
-        command: ["sh", "-c", "sleep infinity"]
-        volumeMounts:
-        - name: captures
-          mountPath: /captures
-          
-      volumes:
-
-      - name: results2
-        hostPath:
-          path: /home/sixgsoftware/Documents/eval-files
-          type: DirectoryOrCreate
-
-      - name: rapl
-        hostPath:
-          path: /sys/class/powercap
-          type: Directory
-      - name: captures
-        emptyDir: {}  
 ---
 apiVersion: v1
 kind: Service

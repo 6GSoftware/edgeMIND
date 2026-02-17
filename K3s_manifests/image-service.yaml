@@ -12,19 +12,54 @@ spec:
       labels:
         app: image-service
     spec:
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - image-service
+                topologyKey: kubernetes.io/hostname
+
       nodeSelector:
-        dedicated: gpu
+        # processor: gpu # gpu
+        role: worker
+
+        # image-node: "true"
+      # runtimeClassName: nvidia # gpu
 
       containers:
-      # --- MAIN CONTAINER ---
       - name: image-service
-        image: registry.local:5000/image-service:latest
+        image: registry.local:4000/image-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5002
 
+        # resources:
+        #   requests:
+        #     cpu: "550m"
+        #     memory: "600Mi"
+        #   limits:
+        #     cpu: "10"
+        #     memory: "20Gi"
+
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+
         securityContext:
-          privileged: true          # REQUIRED for crictl to use containerd.sock
+          privileged: true
           runAsUser: 0
           capabilities:
             add:
@@ -47,7 +82,6 @@ spec:
         - name: containerd-socket
           mountPath: /run/containerd/containerd.sock
 
-      # --- PACKET CAPTURE SIDECAR ---
       - name: packet-capture
         image: nicolaka/netshoot
         securityContext:
@@ -76,7 +110,6 @@ spec:
           path: /var/lib/edgemind
           type: DirectoryOrCreate
 
-      # crictl & containerd mounts (added back)
       - name: crictl-bin
         hostPath:
           path: /var/lib/rancher/k3s/data/current/bin/crictl
@@ -94,3 +127,17 @@ spec:
 
       - name: captures
         emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-service
+spec:
+  type: NodePort
+  # internalTrafficPolicy: Local
+  selector:
+    app: image-service
+  ports:
+  - port: 5002
+    targetPort: 5002
+    nodePort: 30502

@@ -20,7 +20,7 @@ from flask import Flask, request, jsonify
 import logging
 import os
 import uuid
-import pyRAPL
+# import pyRAPL
 import psutil
 import time
 import threading
@@ -28,7 +28,7 @@ import subprocess
 
 from save_measurements import save
 
-pyRAPL.setup()
+# pyRAPL.setup()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,20 +57,16 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "" # FOR TESTING. REMOVE IF WANT TO USE GPU
 # else:
 #     print("Using CPU")
 
-
-
 # hardcoded_question = "What is the crane doing?"
 # prompt = "simple"
 
 # hardcoded_question = "What is the crane doing, and what is in the background of the image?"
 # prompt = "medium"
 
-hardcoded_question = "What is the crane doing, and what is in the background of the image? Based on that information, can you tell me the status of the construction site?"
-prompt = "advanced"
+# hardcoded_question = "What is the crane doing, and what is in the background of the image? Based on that information, can you tell me the status of the construction site?"
+# prompt = "advanced"
 
-
-mode = "SA"
-
+# mode = "SA"
 
 define_model = "phi"
 # define_model = "gemma"
@@ -211,7 +207,7 @@ elif define_model == "gemma":
 
 
 elif define_model == "llama2":
-    model_path = "/models/llama22"
+    model_path = "/models/llama2"
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
@@ -303,8 +299,8 @@ def process_query():
     run_id = str(uuid.uuid4())
 
     # --- Start energy measurement ---
-    meter = pyRAPL.Measurement(f"llm_text_{run_id}")
-    meter.begin()
+    # meter = pyRAPL.Measurement(f"llm_text_{run_id}")
+    # meter.begin()
 
     monitoring_ram = True
     monitoring_cpu = True
@@ -346,19 +342,20 @@ def process_query():
         data=data
     )
 
-    resp_json = resp.json()
+    image_context = resp.json()
 
-    image_context = resp_json["result"]
-    image_cpu_values = resp_json["cpu_values"]
-    image_energy = resp_json["energy_joules"]
+    # image_context = []
 
-    print("IMAGE CONTEXT:", image_context)
-    print("IMAGE_CPU_VALUES:", image_cpu_values)
-    print("IMAGE ENERGY:", image_energy)
+    # image_cpu_values = resp_json["cpu_values"]
+    # image_energy = resp_json["energy_joules"]
+
+    # print("IMAGE CONTEXT:", image_context)
+    # print("IMAGE_CPU_VALUES:", image_cpu_values)
+    # print("IMAGE ENERGY:", image_energy)
 
     # return jsonify({'message': resp.json()}), 200
 
-    user_question = hardcoded_question
+    # user_question = hardcoded_question
 
     print(f"USER_QUESTION: {user_question}")
 
@@ -433,22 +430,22 @@ def process_query():
         # t.join()
 
         end_time = time.time()
-        meter.end()
+        # meter.end()
         duration = end_time - start_time
 
-        energy_pkg = sum(meter.result.pkg) / 1_000_000
-        energy_dram = sum(meter.result.dram or []) / 1_000_000
-        energy_joules = energy_pkg + energy_dram
+        # energy_pkg = sum(meter.result.pkg) / 1_000_000
+        # energy_dram = sum(meter.result.dram or []) / 1_000_000
+        # energy_joules = energy_pkg + energy_dram
 
-        image_result = {
-            "cpu_values": resp_json["cpu_values"],
-            "ram_values": resp_json.get("ram_values", []),
-            "energy_joules": resp_json["energy_joules"],
-            "duration": resp_json.get("duration", 0),
-            "result": resp_json["result"]
-        }
+        # image_result = {
+        #     "cpu_values": resp_json["cpu_values"],
+        #     "ram_values": resp_json.get("ram_values", []),
+        #     "energy_joules": resp_json["energy_joules"],
+        #     "duration": resp_json.get("duration", 0),
+        #     "result": resp_json["result"]
+        # }
 
-        save(image_result, cpu_values, ram_values, energy_joules, duration, run_id, prompt, mode, define_model, user_question, permanent_chunks)
+        # save(image_result, cpu_values, ram_values, energy_joules, duration, run_id, prompt, mode, define_model, user_question, permanent_chunks)
 
         return jsonify({'message': llm_result,
                         'model': define_model}), 200

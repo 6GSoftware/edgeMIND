@@ -13,6 +13,7 @@ First, it checks if the model and processor are already saved locally in the './
 from transformers import AutoModelForCausalLM, AutoProcessor
 import os
 import logging
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ else:
 #Load the model
 model = AutoModelForCausalLM.from_pretrained(
     model_source,
-    device_map="cpu",
+    # device_map="cpu",
+    device_map="auto",
     trust_remote_code=True,
     torch_dtype="auto",
     _attn_implementation='eager'

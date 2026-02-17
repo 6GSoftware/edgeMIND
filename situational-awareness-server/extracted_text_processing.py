@@ -14,6 +14,7 @@ import re
 import time
 import requests
 from situational_awareness_faiss import send_new_data_to_database
+# from situational_awareness_faiss_rag_only import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
 import pyRAPL

@@ -31,7 +31,7 @@ RUN CRICTL_VERSION="v1.30.0" && \
 COPY phi_3_5_vision /app/phi_3_5_vision
 COPY Pictures /app/Pictures
 COPY download_phi_3_5_vision.py /app/
-COPY emultimodal_extracted_data.txt /app/
+# COPY emultimodal_extracted_data.txt /app/
 COPY file_management.py /app/
 COPY save_measurements.py /app/
 COPY image_processing.py /app/
@@ -42,3 +42,5 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 5002
 
 CMD ["python", "image_server.py"]
+# CMD ["gunicorn", "--preload", "-w", "8", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5002", "image_server:app"]
+

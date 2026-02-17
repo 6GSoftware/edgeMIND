@@ -7,13 +7,21 @@ import logging
 import requests
 import multiprocessing as mp
 import uuid
-import pyRAPL
+# import pyRAPL
 import psutil
 import sys
 import subprocess
 from PIL import Image
+from multiprocessing import Process
 
 IN_K3S = os.path.exists("/var/run/secrets/kubernetes.io/serviceaccount/token")
+
+POD_NAME = os.getenv("POD_NAME", "unknown-pod")
+NODE_NAME = os.getenv("NODE_NAME", "unknown-node")
+
+monitoring_cpu = False
+monitoring_ram = False
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,14 +52,14 @@ def upload_file():
     run_id = str(uuid.uuid4())
 
     # --- Start energy measurement ---
-    meter = pyRAPL.Measurement(f"image_service_{run_id}")
-    meter.begin()
+    # meter = pyRAPL.Measurement(f"image_service_{run_id}")
+    # meter.begin()
 
-    monitoring_ram = True
-    monitoring_cpu = True
+    # monitoring_ram = True
+    # monitoring_cpu = True
 
-    t = threading.Thread(target=monitor_usage, args=(0,), daemon=True)
-    t.start()
+    # t = threading.Thread(target=monitor_usage, args=(1,), daemon=True)
+    # t.start()
 
     # start_sa_monitoring_SA()
 
@@ -67,18 +75,25 @@ def upload_file():
     # Save the uploaded file
     response_message = save_file(file_name, file)
 
-    # Process the file in another thread
-    # thread = threading.Thread(target=process_file, kwargs={
-    #                 'file_name': file_name,
-    #                 'start_time': start_time,
-    #                 'run_id': run_id
-    #                 })
-    # thread.start()
 
-    process_file(file_name=file_name, start_time=start_time, run_id=run_id, meter=meter)
+    p = Process(
+        target=process_file,
+        kwargs={
+            "file_name": file_name,
+            "start_time": time.time(),
+            "run_id": str(uuid.uuid4())
+        }
+    )
+    p.start()
+
+    # duration = process_file(file_name=file_name, start_time=start_time, run_id=run_id)
 
     # Send a response message to the mobile app
-    return {'message': response_message}, 200
+    return jsonify({
+        "pod": POD_NAME,
+        "node": NODE_NAME
+        # "duration": duration
+    }), 200
 
 
 def process_file(**kwargs):
@@ -87,23 +102,27 @@ def process_file(**kwargs):
     file_name = kwargs.get('file_name')
     start_time = kwargs.get('start_time')
     run_id = kwargs.get('run_id')
-    meter = kwargs.get('meter')
+    # meter = kwargs.get('meter')
     caller = kwargs.get('caller')
 
     # Extract text from the file and save the exracted text to appropriate file.
     logging.info(f"{TAG} Processing image file...")
-    # processed_file_content = process_image_files(filename=file_name)
+    processed_file_content = process_image_files(filename=file_name)
 
     # Example data for debugging
-    processed_file_content = """Response for picture1234.jpg:
-    - The mug is being held in a way that suggests it is being presented or shown off.
-    - There are no other objects or people visible in the image."""
+    # processed_file_content = """Response for picture1234.jpg:
+    # - The mug is being held in a way that suggests it is being presented or shown off.
+    # - There are no other objects or people visible in the image."""
 
-    total = 0.0
-    for i in range(60_000_000):
-        total += i ** 0.5
-
+    # total = 0.0
+    # for i in range(60_000_000):
+    #     total += i ** 0.5
+ 
     # return 'File uploaded and saved successfully!!'
+
+    end_time = time.time()
+    # meter.end()
+    duration = end_time - start_time
 
     logging.info(f"{TAG} The content of the processed file is now: {processed_file_content}")
 
@@ -121,37 +140,24 @@ def process_file(**kwargs):
         logging.error(f"{TAG} Failed to communicate with SA service: {e}")
         sa_result = {}
 
-    end_time = time.time()
-    meter.end()
-    duration = end_time - start_time
+    # monitoring_ram = False
+    # monitoring_cpu = False
 
-    monitoring_ram = False
-    monitoring_cpu = False
-
-    energy_pkg = sum(meter.result.pkg) / 1_000_000
-    energy_dram = sum(meter.result.dram or []) / 1_000_000
-    energy_joules = energy_pkg + energy_dram
+    # energy_pkg = sum(meter.result.pkg) / 1_000_000
+    # energy_dram = sum(meter.result.dram or []) / 1_000_000
+    # energy_joules = energy_pkg + energy_dram
 
     print("SA RESULTS: ")
     print(sa_result)
 
-    save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id)
+    # save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id)
 
-    cpu_values.clear()
-    ram_values.clear()
+    # cpu_values.clear()
+    # ram_values.clear()
 
     logging.info(f"{TAG} Data sent to Situational Awareness and measuring server!\n")
 
-
-
-
-
-
-
-
-
-
-
+    return duration
 
 
 @app.route('/process_user_image', methods=['POST'])
@@ -162,13 +168,13 @@ def process_user_image():
     run_id = str(uuid.uuid4())
 
     # --- Start energy measurement ---
-    meter = pyRAPL.Measurement(f"image_service_{run_id}")
-    meter.begin()
+    # meter = pyRAPL.Measurement(f"image_service_{run_id}")
+    # meter.begin()
 
-    monitoring_cpu = True
+    # monitoring_cpu = True
 
-    t = threading.Thread(target=monitor_usage, args=(3,), daemon=True)
-    t.start()
+    # t = threading.Thread(target=monitor_usage, args=(3,), daemon=True)
+    # t.start()
 
     caller = request.form.get("caller")
     image_file = request.files.get("file")
@@ -199,41 +205,27 @@ def process_user_image():
 # - There are construction barriers and a concrete pillar visible, indicating ongoing construction work.
 # - The sky is partly cloudy, suggesting fair weather conditions."""
 
-
-
-
     # total = 0.0
     # for i in range(60_000_000):
     #     total += i ** 0.5
 
     # processed_file_content = process_file(caller="llm-service", image_file=image_file, file_name="name", start_time=start_time, run_id=run_id, meter=meter)
 
-    cpu_values2 = cpu_values.copy()
+    # cpu_values2 = cpu_values.copy()
 
-    monitoring_cpu = False
-    cpu_values.clear()
-    meter.end()
+    # monitoring_cpu = False
+    # cpu_values.clear()
+    # meter.end()
 
-    energy_pkg = sum(meter.result.pkg) / 1_000_000
-    energy_dram = sum(meter.result.dram or []) / 1_000_000
-    energy_joules = energy_pkg + energy_dram
+    # energy_pkg = sum(meter.result.pkg) / 1_000_000
+    # energy_dram = sum(meter.result.dram or []) / 1_000_000
+    # energy_joules = energy_pkg + energy_dram
 
     end_time = time.time()
     duration = end_time - start_time
 
     # Send a response message to the mobile app
-    return jsonify({
-        "result": processed_file_content,
-        "cpu_values": cpu_values2,
-        "energy_joules": energy_joules
-    })
-
-
-    #save(sa_result, cpu_values, ram_values, energy_joules, duration, run_id)
-
-
-
-
+    return jsonify(processed_file_content), 200
 
 
 def save_file(file_name, file):
@@ -272,10 +264,10 @@ def send_to_extracted_text_processing(processed_file_content, run_id):
     except Exception as e:
         logging.error(f"{TAG} Connection failed: {e}")
 
-pyRAPL.setup()
+# pyRAPL.setup()
 
-monitoring_cpu = False
-monitoring_ram = False
+# monitoring_cpu = False
+# monitoring_ram = False
 
 cpu_values = []
 ram_values = []
@@ -361,7 +353,13 @@ def start_sa_monitoring_SA():
     except Exception as e:
         logging.error(f"Failed to start monitoring in SA service: {e}")
 
+import datetime
 
+print(
+    f"[READY] image-service module loaded at "
+    f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+    flush=True
+)
 
 if __name__ == '__main__':
     # print("")

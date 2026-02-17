@@ -83,3 +83,5 @@ RU_test_result_files
 .dockerignore
 results
 hae.py
+permanent_metadata2.json
+temp_metadata2.json
