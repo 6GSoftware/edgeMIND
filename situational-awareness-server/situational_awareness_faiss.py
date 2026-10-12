@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 TAG = "situational_awareness_faiss:  "
 
 # VECTOR_DB_URL = "http://127.0.0.1:8000/store"
-VECTOR_DB_URL = "http://vector-db:8000/store"
+VECTOR_DB_URL = "http://vector-db-gpu:8001/store"
 
 file_path = './Pre_processed_text.txt'
 
@@ -226,7 +226,7 @@ temp_index = None
 perm_index = None
 
 # url = "http://127.0.0.1:8000/get_topics"
-url = "http://vector-db:8000/get_topics"
+url = "http://vector-db-gpu:8001/get_topics"
 
 
 def fetch_topics(database_name):

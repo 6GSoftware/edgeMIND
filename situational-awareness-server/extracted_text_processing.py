@@ -14,7 +14,7 @@ import re
 import time
 import requests
 from situational_awareness_faiss import send_new_data_to_database
-# from situational_awareness_faiss_rag_only import send_new_data_to_database
+#from situational_awareness_faiss_rag_only import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
 import pyRAPL
@@ -42,6 +42,13 @@ try:
 except LookupError:
     logging.info("[NLTK] 'punkt' not found. Downloading now...")
     nltk.download('punkt_tab')
+
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
+
+
 
 def preprocess_sentence(sentence):
     sentence = sentence.lower()  # Convert to lowercase
@@ -73,21 +80,22 @@ def process_extracted_texts(file_content):
 
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
-    global monitoring_cpu, cpu_values, ram_values
-
-    monitoring_cpu = True
-
-    start_time = time.time()
+#    global monitoring_cpu, cpu_values, ram_values
+#
+#    monitoring_cpu = True
+#
+#    start_time = time.time()
 
     try:
         # Extract data from the HTTP request
         data = request.get_json()
 
         processed_file_contents = data.get("data", "")
-        run_id = data.get("run_id", "")
-
-        meter = pyRAPL.Measurement(f"sa_{run_id}")
-        meter.begin()
+        print(f"{TAG} Received data: {processed_file_contents}")
+#        run_id = data.get("run_id", "")
+#
+#        meter = pyRAPL.Measurement(f"sa_{run_id}")
+#        meter.begin()
 
         if not processed_file_contents:
             print(f"{TAG} No data received.")
@@ -100,46 +108,51 @@ def handle_extracted_texts():
         print(f"{TAG} BEFORE: {processed_file_contents}")
 
         database = "temp"
+        print(f"{TAG} Sending processed data to database: {database}")
 
-        send_new_data_to_database([
-            line + '\n' for line in processed_file_contents.split('\n') if line.strip()
-        ], database)
+        processed_file_contents = [line + '\n' for line in processed_file_contents.split('\n') if line.strip()]
+        print(f"{TAG} Processed file contents split into {len(processed_file_contents)} sentences.")
+        print(f"{TAG} First 2 sentences: {processed_file_contents[:2]}")
 
-        stop_monitoring()
+        send_new_data_to_database(processed_file_contents, database)
 
-        end_time = time.time()
-        meter.end()
+        #send_new_data_to_database([
+        #    line + '\n' for line in processed_file_contents.split('\n') if line.strip()
+        #], database)
 
-        energy_pkg = sum(meter.result.pkg) / 1_000_000
-        energy_dram = sum(meter.result.dram or []) / 1_000_000
-        energy_joules = energy_pkg + energy_dram
+#        stop_monitoring()
+#
+#        end_time = time.time()
+#        meter.end()
+#
+#        energy_pkg = sum(meter.result.pkg) / 1_000_000
+#        energy_dram = sum(meter.result.dram or []) / 1_000_000
+#        energy_joules = energy_pkg + energy_dram
+#
+#        duration = end_time - start_time
+#
+#        return jsonify({
+#            "status": "ok",
+#            "cpu_values": cpu_values,
+#            "ram_values": ram_values,
+#            "duration": duration,
+#            "energy_joules": energy_joules
+#        })
 
-        duration = end_time - start_time
-
-        return jsonify({
-            "status": "ok",
-            "cpu_values": cpu_values,
-            "ram_values": ram_values,
-            "duration": duration,
-            "energy_joules": energy_joules
-        })
+        return jsonify({"status": "ok", "message": "Extracted texts processed and sent to database"}), 200
 
     except Exception as e:
         print(f"{TAG} Error while processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-monitoring_cpu = False
-monitoring_ram = False
-cpu_values = []
-ram_values = []
 
+#monitoring_cpu = False
+#monitoring_ram = False
+#cpu_values = []
+#ram_values = []
 
-@app.route("/health")
-def health():
-    return {"status": "ok"}, 200
-
-
+'''
 def format_bytes(size):
     power = 2**10
     n = 0
@@ -266,11 +279,12 @@ def stop_monitoring():
     monitoring_cpu = False
     monitoring_ram = False
     return jsonify({"status": "ok", "message": "Monitoring stopped"}), 200
-
+'''
         
 if __name__ == "__main__":
     # monitoring = True
     # monitoring_cpu = True
     # monitoring_ram = True
     # threading.Thread(target=monitor_usage, args=(3.0,), daemon=True).start()
-    app.run(host="0.0.0.0", port=6501, debug=False)
+    app.run(host="0.0.0.0", port=6502, debug=False)
+    # for CPU, use port=6501
