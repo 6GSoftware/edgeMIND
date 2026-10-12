@@ -228,6 +228,7 @@ def search():
     try:
         request_data = request.get_json()
         question = request_data.get('question', '')
+        #retrieval_n = request_data.get('n')   # NOTE: USE THIS IN MODEL ADAPTABILITY TESTS
 
         if not question:
             return jsonify({"status": "error", "message": "No question provided"}), 400
@@ -247,7 +248,7 @@ def search():
             best_topic_idx = int(topic_indices[0][0])
 
             # Search inside the chosen permanent topic's chunks
-            chunk_distances, chunk_idxs = permanent_chunk_indices[best_topic_idx].search(query_emb, k=3)
+            chunk_distances, chunk_idxs = permanent_chunk_indices[best_topic_idx].search(query_emb, k=3) # NOTE: retrieval_n, for model adaptability tests
 
             for i, idx in enumerate(chunk_idxs[0]):
 
@@ -269,34 +270,34 @@ def search():
 
 
         temp_results = []
-        if temp_topic_index is not None and temp_metadata:
-
-            # Find the best matching temp topic
-            _, topic_indices = temp_topic_index.search(query_emb, k=1)
-            best_topic_idx = int(topic_indices[0][0])
-
-            # Search inside the chosen temp topic's chunks
-            chunk_distances, chunk_idxs = temp_chunk_indices[best_topic_idx].search(query_emb, k=3)
-
-            for i, idx in enumerate(chunk_idxs[0]):
-
-                print(f"IDXS: {idx}")
-
-                if idx == -1:
-                    continue  # FAISS placeholder
-
-                chunk_text = temp_metadata[best_topic_idx]['chunks'][idx]['text']
-                distance = float(chunk_distances[0][i])
-
-                print("\n------- TEMP RESULT -------")
-                print(f"TEMP CHUNK: {chunk_text}")
-                print(f"TEMP DISTANCE: {distance}")
-                print("---------------------------\n")
-
-                if distance > threshold:
-                    continue
-
-                temp_results.append(chunk_text)
+#        if temp_topic_index is not None and temp_metadata:
+#
+#            # Find the best matching temp topic
+#            _, topic_indices = temp_topic_index.search(query_emb, k=1)
+#            best_topic_idx = int(topic_indices[0][0])
+#
+#            # Search inside the chosen temp topic's chunks
+#            chunk_distances, chunk_idxs = temp_chunk_indices[best_topic_idx].search(query_emb, k=3)
+#
+#            for i, idx in enumerate(chunk_idxs[0]):
+#
+#                print(f"IDXS: {idx}")
+#
+#                if idx == -1:
+#                    continue  # FAISS placeholder
+#
+#                chunk_text = temp_metadata[best_topic_idx]['chunks'][idx]['text']
+#                distance = float(chunk_distances[0][i])
+#
+#                print("\n------- TEMP RESULT -------")
+#                print(f"TEMP CHUNK: {chunk_text}")
+#                print(f"TEMP DISTANCE: {distance}")
+#                print("---------------------------\n")
+#
+#                if distance > threshold:
+#                    continue
+#
+#                temp_results.append(chunk_text)
 
 
         payload = {
@@ -439,4 +440,5 @@ permanent_metadata, permanent_topic_index, permanent_chunk_indices = init_store(
 temp_metadata, temp_topic_index, temp_chunk_indices = init_store(TEMP_METADATA_FILE_PATH)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=False)
+    app.run(host="0.0.0.0", port=8001, debug=False)
+    # For CPU, use port=8000, GPU 8001
