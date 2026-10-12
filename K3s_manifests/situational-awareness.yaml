@@ -4,6 +4,11 @@ metadata:
   name: situational-awareness
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: situational-awareness
@@ -12,16 +17,31 @@ spec:
       labels:
         app: situational-awareness
     spec:
-      # affinity:
+      affinity:
       #   podAntiAffinity:
       #     requiredDuringSchedulingIgnoredDuringExecution:
       #     - labelSelector:
       #         matchLabels:
       #           app: edgemind-vector-db-server
             # topologyKey: "kubernetes.io/hostname"
-      nodeSelector:
-        role: worker
-        # image-node: "true"
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - <add nodes here, 2 for scalability tests>
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: situational-awareness
+              topologyKey: kubernetes.io/hostname
+#      nodeSelector:
+#        role: worker
+#        kubernetes.io/hostname: node1
+#        # image-node: "true"
       containers:
       - name: situational-awareness
         image: registry.local:4000/situational-awareness:latest
@@ -44,15 +64,15 @@ spec:
         securityContext:
           privileged: true
           runAsUser: 0
-      - name: packet-capture
-        image: nicolaka/netshoot
-        securityContext:
-          capabilities:
-            add: ["NET_ADMIN", "NET_RAW"]
-        command: ["sh", "-c", "sleep infinity"]
-        volumeMounts:
-        - name: captures
-          mountPath: /captures
+      #- name: packet-capture
+      #  image: nicolaka/netshoot
+      #  securityContext:
+      #    capabilities:
+      #      add: ["NET_ADMIN", "NET_RAW"]
+      #  command: ["sh", "-c", "sleep infinity"]
+      #  volumeMounts:
+      #  - name: captures
+      #    mountPath: /captures
 
       volumes:
       - name: rapl

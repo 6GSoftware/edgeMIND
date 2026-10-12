@@ -4,6 +4,11 @@ metadata:
   name: vector-db
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: vector-db
@@ -12,9 +17,25 @@ spec:
       labels:
         app: vector-db
     spec:
-      nodeSelector:
-        role: worker
-        # image-node: "true"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - <add nodes here, 2 for scalability tests>
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: vector-db
+            topologyKey: kubernetes.io/hostname
+#      nodeSelector:
+#        role: worker
+#        kubernetes.io/hostname: node1       # or node2 when using CPU node, node1 when using GPU node
+#        # image-node: "true"
       containers:
       - name: vector-db
         image: registry.local:4000/vector-db:latest

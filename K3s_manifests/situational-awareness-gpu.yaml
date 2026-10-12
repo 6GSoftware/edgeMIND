@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: situational-awareness-gpu
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: situational-awareness-gpu
+  template:
+    metadata:
+      labels:
+        app: situational-awareness-gpu
+    spec:
+      affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - <add nodes here, 2 for scalability tests>
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: situational-awareness-gpu
+              topologyKey: kubernetes.io/hostname
+
+      containers:
+      - name: situational-awareness-gpu
+        image: registry.local:4000/situational-awareness-gpu:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 6502
+        volumeMounts:
+        - name: rapl
+          mountPath: /sys/class/powercap
+          readOnly: true
+        - name: edgemind-data
+          mountPath: /data
+          readOnly: true
+        - name: crictl-bin
+          mountPath: /usr/local/bin/crictl
+        - name: containerd-socket-k3s
+          mountPath: /run/k3s/containerd/containerd.sock
+        - name: containerd-socket-default
+          mountPath: /run/containerd/containerd.sock
+        securityContext:
+          privileged: true
+          runAsUser: 0
+
+      volumes:
+      - name: rapl
+        hostPath:
+          path: /sys/class/powercap
+          type: Directory
+      - name: edgemind-data
+        hostPath:
+          path: /var/lib/edgemind
+          type: DirectoryOrCreate
+      - name: crictl-bin
+        hostPath:
+          path: /usr/local/bin/crictl
+          type: File
+      - name: containerd-socket-k3s
+        hostPath:
+          path: /run/k3s/containerd/containerd.sock
+          type: Socket
+      - name: containerd-socket-default
+        hostPath:
+          path: /run/containerd/containerd.sock
+          type: Socket
+      - name: captures
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: situational-awareness-gpu
+spec:
+  type: NodePort
+  selector:
+    app: situational-awareness-gpu
+  ports:
+  - port: 6502
+    targetPort: 6502
+    nodePort: 30504

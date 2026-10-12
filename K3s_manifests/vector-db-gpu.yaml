@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vector-db-gpu
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: vector-db-gpu
+  template:
+    metadata:
+      labels:
+        app: vector-db-gpu
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - <add nodes here, 2 for scalability tests>
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: vector-db-gpu
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: vector-db-gpu
+        image: registry.local:4000/vector-db-gpu:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vector-db-gpu
+spec:
+  selector:
+    app: vector-db-gpu
+  type: NodePort
+  ports:
+  - port: 8001
+    targetPort: 8001
+    nodePort: 30801

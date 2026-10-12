@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-text-gen-service-gpu
+spec:
+  replicas: 1   # 2 for scalability tests
+  strategy:
+    type: Recreate 
+  selector:
+    matchLabels:
+      app: llm-text-gen-service-gpu
+  template:
+    metadata:
+      labels:
+        app: llm-text-gen-service-gpu
+    spec:
+      runtimeClassName: nvidia # gpu
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - llm-text-gen-service-gpu
+                topologyKey: kubernetes.io/hostname 
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - <add nodes here, 2 for scalability tests>
+
+      containers:
+      - name: llm-text-gen-service-gpu
+        image: registry.local:4000/llm-text-gen-service-gpu:latest
+        ports:
+        - containerPort: 5008
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+
+        resources:  #gpu
+            limits:
+              nvidia.com/gpu: 1         # <-- request exactly 1 GPU
+            requests:
+              nvidia.com/gpu: 1
+              cpu: "500m"
+
+        volumeMounts:
+
+        - name: crictl-bin
+          mountPath: /usr/local/bin/crictl
+        - name: containerd-k3s-dir
+          mountPath: /run/k3s/containerd
+        - name: containerd-socket
+          mountPath: /run/containerd/containerd.sock
+
+        - name: llm-models
+          mountPath: /models
+          readOnly: true
+
+        - name: rapl
+          mountPath: /sys/class/powercap
+          readOnly: true
+
+      volumes:
+      
+      - name: crictl-bin
+        hostPath:
+          path: /var/lib/rancher/k3s/data/current/bin/crictl
+          type: File
+
+      - name: containerd-k3s-dir
+        hostPath:
+          path: /run/k3s/containerd
+          type: Directory
+
+      - name: containerd-socket
+        hostPath:
+          path: /run/containerd/containerd.sock
+          type: Socket
+
+      - name: captures
+        emptyDir: {}
+
+      - name: llm-models
+        hostPath:
+          path: /var/lib/llm-models/models
+          type: Directory
+          
+      - name: rapl
+        hostPath:
+          path: /sys/class/powercap
+          type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-text-gen-service-gpu
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local  # Cluster
+  selector:
+    app: llm-text-gen-service-gpu
+  ports:
+  - port: 5008
+    targetPort: 5008
+    nodePort: 30503
