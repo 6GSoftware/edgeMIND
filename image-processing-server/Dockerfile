@@ -14,7 +14,10 @@ RUN apt-get update && \
         tcpdump \
         procps \
         iw \
-        tar && \
+        tar \
+        gcc \
+        g++ \
+        build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

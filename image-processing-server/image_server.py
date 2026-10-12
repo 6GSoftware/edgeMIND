@@ -162,10 +162,10 @@ def process_file(**kwargs):
 
 @app.route('/process_user_image', methods=['POST'])
 def process_user_image():
-    global cpu_values, monitoring_cpu
-
-    start_time = time.time()
-    run_id = str(uuid.uuid4())
+#    global cpu_values, monitoring_cpu
+#
+#    start_time = time.time()
+#    run_id = str(uuid.uuid4())
 
     # --- Start energy measurement ---
     # meter = pyRAPL.Measurement(f"image_service_{run_id}")
@@ -176,7 +176,7 @@ def process_user_image():
     # t = threading.Thread(target=monitor_usage, args=(3,), daemon=True)
     # t.start()
 
-    caller = request.form.get("caller")
+    #caller = request.form.get("caller")        #NOTE: UNCOMMENT AFTER TESTING!!!!
     image_file = request.files.get("file")
 
     # start_sa_monitoring_SA()
@@ -221,8 +221,8 @@ def process_user_image():
     # energy_dram = sum(meter.result.dram or []) / 1_000_000
     # energy_joules = energy_pkg + energy_dram
 
-    end_time = time.time()
-    duration = end_time - start_time
+#    end_time = time.time()
+#    duration = end_time - start_time
 
     # Send a response message to the mobile app
     return jsonify(processed_file_content), 200
@@ -269,14 +269,14 @@ def send_to_extracted_text_processing(processed_file_content, run_id):
 # monitoring_cpu = False
 # monitoring_ram = False
 
-cpu_values = []
-ram_values = []
+#cpu_values = []
+#ram_values = []
 
 @app.route("/health")
 def health():
     return {"status": "ok"}, 200
 
-
+'''
 def format_bytes(size):
     power = 2**10
     n = 0
@@ -360,6 +360,7 @@ print(
     f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
     flush=True
 )
+'''
 
 if __name__ == '__main__':
     # print("")

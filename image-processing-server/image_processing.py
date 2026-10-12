@@ -13,6 +13,9 @@ processed_images.txt file to prevent processing the same file again.
 from PIL import Image
 import os
 import logging
+import torch
+
+from torch import device
 
 logging.basicConfig(level=logging.INFO)
 
@@ -75,7 +78,9 @@ def process_image_files(image=None, filename=None):
     )
 
     # Preprocess the input
-    inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
+#    inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")  # NOTE: CPU testing
+    device = next(model.parameters()).device                                    # NOTE: GPU testing
+    inputs = processor(prompt, images=[image], return_tensors="pt").to(device)  # NOTE: GPU testing
 
     # Define generation arguments
     generation_args = {
