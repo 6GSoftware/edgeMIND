@@ -4,3 +4,9 @@ venv/
 **/*.csv
 **/*.md
 phi_3_5_vision/
+LLMquery-server-text/config.example.env
+LLMquery-server-text/download_and_save_LLM.py
+LLMquery-server-text/save_measurements.py
+image-processing-server/Phi-3.5-vision/
+
+*/README.md
