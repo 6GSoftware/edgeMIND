@@ -6,6 +6,7 @@ __pycache__
 /extracted_data/
 /model/
 phi_3_5_vision
+image-processing-server/Phi-3.5-vision
 
 # Virtual environment(s)
 /env/
@@ -21,6 +22,8 @@ phi_3_5_vision
 
 /edgeMIND-vector-db-server/multimodal_faiss_index_2.index
 /edgeMIND-vector-db-server/topic_metadata_with_names_2.txt
+
+/edgeMIND-vector-db-server/vector_db_server_test.py
 
 temp_faiss_index.index
 temp_metadata.txt
@@ -48,6 +51,17 @@ Pre_processed_text.txt
 topic_metadata_with_names.txt
 topic_metadata_with_names.json
 
+# Files related to evaluation tests
+*.sh
+*.csv
+model_adaptability/
+latency_ground_sim_results/
+scalability_results/
+session_persistence_results/
+K3s_manifests/dcgm*
+K3s_manifests/keda-scaledobject.yaml
+LLMquery-server-text/download_and_save_llama_chat.py
+
 # Other files and directories
 workflow_documentation.md
 .env
@@ -68,11 +82,11 @@ indexit
 toimivat
 permanent_metadata.json
 temp_metadata.json
+useful_stuff/
 
 # Files that include important or temporary data
 *.png
 *.zip
-*.csv
 ä-aluperäset
 ä-oikeet-testeihin
 Audio
