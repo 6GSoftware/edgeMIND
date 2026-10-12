@@ -9,6 +9,7 @@ This module is the edgeMIND user query processing server. This module:
     > forwards the generated response to the situational awareness module for further processing.
 """
 
+import gc
 import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -25,6 +26,8 @@ import psutil
 import time
 import threading
 import subprocess
+import queue
+import concurrent.futures
 
 from save_measurements import save
 
@@ -37,8 +40,12 @@ print(f"IN_K3S: {IN_K3S}")
 
 app = Flask(__name__)
 
+# Files for running evaluation tests
+STAGE3_TEST2_FILE = "stage3_test2.csv"
+
 @app.route('/health')
 def health():
+    print("Health check received")
     return {'status': 'ok'}
 
 # Set the random seed for reproducibility
@@ -57,43 +64,54 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "" # FOR TESTING. REMOVE IF WANT TO USE GPU
 # else:
 #     print("Using CPU")
 
-# hardcoded_question = "What is the crane doing?"
-# prompt = "simple"
 
-# hardcoded_question = "What is the crane doing, and what is in the background of the image?"
-# prompt = "medium"
-
-# hardcoded_question = "What is the crane doing, and what is in the background of the image? Based on that information, can you tell me the status of the construction site?"
-# prompt = "advanced"
-
-# mode = "SA"
-
-define_model = "phi"
-# define_model = "gemma"
-# define_model = "llama2"
+#define_model = "phi"
+#define_model = "gemma"
+define_model = "llama2"
 
 print(f'MODEL: {define_model}')
 
 
 generation_args = None
 pipe = None
+model_lock = threading.Lock()
+
 
 if define_model == "phi":
     try:
         model_path = "/models/phi3"
-        model = AutoModelForCausalLM.from_pretrained(model_path)
+#        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cpu")
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            device_map="auto"   # ← loads directly to GPU
+        )
         tokenizer = AutoTokenizer.from_pretrained(model_path)
 
-        pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+        pipe = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            device_map="auto"   # ← also needed here so the pipeline respects GPU
+        )
 
         generation_args = {
-            "max_new_tokens": 500,
+            "max_new_tokens": 300,
             "return_full_text": False,
             "temperature": 0.5,
             "do_sample": True,
+            "top_p": 0.9,
         }
-    except :
-        logging.warning(f"Failed to load model.")
+
+        # Confirm device placement
+        print(f"Model loaded on: {next(model.parameters()).device}")
+        print(f"CUDA available: {torch.cuda.is_available()}")
+        print(f"GPU name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none'}")
+    except Exception as e:
+        logging.warning(f"Failed to load model: {e}")
 
     # Define the prompt template for the assistant
     # prompt_template = """
@@ -159,31 +177,20 @@ if define_model == "phi":
 elif define_model == "gemma":
     try:
         model_path = "/models/gemma"
+        device = torch.device("cpu")
 
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+            torch_dtype=torch.float32,   # or torch.bfloat16 if your CPU lacks bf16 support
         )
+        model.to(device)
+        model.eval()
 
+        print(f"Model loaded on: {next(model.parameters()).device}")
+        print(f"hf_device_map: {getattr(model, 'hf_device_map', None)}")
     except Exception as e:
         logging.warning(f"Failed to load Gemma model: {e}")
-
-    # prompt_template = """<start_of_turn>user
-    # Use only the following information to answer the question.
-    # If insufficient, respond exactly: "I don't know."
-
-    # Image extracted information:
-    # {image_context}
-
-    # RAG context:
-    # {context}
-
-    # Question:
-    # {question}
-    # <end_of_turn>
-    # <start_of_turn>model
-    # """
 
     prompt_template = """
     You are an expert assistant. Follow these rules strictly:
@@ -207,19 +214,27 @@ elif define_model == "gemma":
 
 
 elif define_model == "llama2":
-    model_path = "/models/llama2"
+    try:
+        model_path = "/models/llama2_chat"
+#        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cpu")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            low_cpu_mem_usage=True,
+            device_map="auto"
+        )
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.float16,
-        low_cpu_mem_usage=True,
-        device_map="cpu"
-    )
+        prompt_template = ""
 
-    prompt_template = ""
-
+        # Confirm device placement
+        print(f"Model loaded on: {next(model.parameters()).device}")
+        print(f"CUDA available: {torch.cuda.is_available()}")
+        print(f"GPU name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none'}")
+    except Exception as e:
+        logging.warning(f"Failed to load Llama2 model: {e}")
 
 
 # Initialize the prompt with template
@@ -227,6 +242,34 @@ PROMPT = PromptTemplate(
     template=prompt_template,
     input_variables=["context", "question", "image_context"]
 )
+
+
+## NOTE: For GPU testing
+## ================================================================================
+## A single-item queue for inference jobs
+#_inference_queue = queue.Queue()
+#
+#def _inference_worker():
+#    """Single thread that owns the GPU model and processes requests one at a time."""
+#    while True:
+#        future, fn, args, kwargs = _inference_queue.get()
+#        try:
+#            result = fn(*args, **kwargs)
+#            future.set_result(result)
+#        except Exception as e:
+#            future.set_exception(e)
+#
+## Start the worker thread once, when the service starts
+#_worker_thread = threading.Thread(target=_inference_worker, daemon=True)
+#_worker_thread.start()
+#
+#def run_inference(fn, *args, **kwargs):
+#    """Submit an inference job and block until it completes."""
+#    future = concurrent.futures.Future()
+#    _inference_queue.put((future, fn, args, kwargs))
+#    return future.result()  # blocks the Flask worker thread until done
+## ===============================================================================
+
 
 def clean_text(text):
     """Remove extra spaces and special characters, except periods."""
@@ -243,10 +286,10 @@ def filter_generated_text(generated_text, retrieved_texts):
     """Filter out the retrieved texts and remove timestamps or unwanted patterns."""
     # Remove the retrieved texts from the generated response
     filtered_text = generated_text.replace(retrieved_texts, "").strip()
-
+    print(f"Generated text before cleanup: {generated_text}")
     # Clean any remaining extra spaces or special characters
     filtered_text = clean_text(filtered_text)
-
+    print(f"Generated text after cleanup: {filtered_text}")
     # Remove timestamps (e.g., "Timestamp 20241016T095658.722410")
     filtered_text = re.sub(r"Timestamp\s+\d{8}T\d{6}\.\d+", "", filtered_text)
 
@@ -255,16 +298,20 @@ def filter_generated_text(generated_text, retrieved_texts):
 
     # Remove any extra spaces introduced by the cleanup
     filtered_text = re.sub(r"\s+", " ", filtered_text).strip()
+    print(f"Final filtered text: {filtered_text}")
 
     return filtered_text
 
 
-def query_llm(generation_args, pipe, db_query_result, user_question, image_context):
+def query_phi(generation_args, pipe, db_query_result, user_question, image_context):
     """Handle a connected client: \n
     - receive query from the client and send it to the vector database server.
     - receive response from the vector database server. Send the response and the user query to the LLM.
     - get a generated response from the LLm and send it back to the client.
     - finally, close client socket connection."""
+
+    logging.info("DB_QUERY_RESULT:")
+    logging.info(db_query_result)
 
     # Prepare response for the client
     if db_query_result:
@@ -279,33 +326,41 @@ def query_llm(generation_args, pipe, db_query_result, user_question, image_conte
     logging.info(f"Prompt: {message}")
 
     # Generate output using the text generation model
-    output = pipe(message, **generation_args)
-    generated_text = output[0]['generated_text']
-    logging.info(f"Generated response before cleanup: {generated_text}")
+    final_generated_text = ""
+    try:
+        output = None
+        with torch.no_grad():
+            output = pipe(message, **generation_args)
+        generated_text = output[0]['generated_text']
+        logging.info(f"Generated response before cleanup: {generated_text}")
 
-    # Filter out the retrieved texts from the generated response
-    #final_generated_text = filter_generated_text(generated_text, response)
-    final_generated_text = filter_generated_text(generated_text, db_query_result)
-    logging.info(f"Final generated response: {final_generated_text}")
+        # Filter out the retrieved texts from the generated response
+        #final_generated_text = filter_generated_text(generated_text, response)
+        final_generated_text = filter_generated_text(generated_text, db_query_result)
+        logging.info(f"Final generated response: {final_generated_text}")
+    finally:
+        # Clean up inference artifacts after every run, model stays loaded
+        del output
+        gc.collect()
 
     return final_generated_text
 
 
 @app.route('/process_query', methods=['POST'])
 def process_query():
-    global cpu_values, ram_values, monitoring_ram, monitoring_cpu
-
     start_time = time.time()
+    print("DEBUG: processing the user query...")
+#    global ram_values, disk_values, vram_values, monitoring_ram, monitoring_disk, monitoring_vram
+
     run_id = str(uuid.uuid4())
+    user_question = ""
+    #retrieval_n = 3    # NOTE: this is for model adaptability tests
 
-    # --- Start energy measurement ---
-    # meter = pyRAPL.Measurement(f"llm_text_{run_id}")
-    # meter.begin()
-
-    monitoring_ram = True
-    monitoring_cpu = True
-    t = threading.Thread(target=monitor_usage, args=(0,), daemon=True)
-    t.start()
+#    monitoring_ram = True
+#    monitoring_disk = True
+#    monitoring_vram = True
+#    t = threading.Thread(target=monitor_usage, args=(0,), daemon=True)
+#    t.start()
 
     # start_sa_monitoring_SA()
 
@@ -317,41 +372,44 @@ def process_query():
             return jsonify({'message': 'File is not an image'}), 400
 
         user_question = request.form.get('question')
+        print(f"DEBUG: user_question from form: {user_question}")
 
     else:
         print("DEBUG: No file received")
         json_data = request.get_json(silent=True)
+        print(f"JSON data received: {json_data}")
         if json_data:
             user_question = json_data.get('question')
-
+            #retrieval_n = json_data.get('n')    # NOTE: FOR MODEL ADAPTABILITY TESTS
+            print(f"DEBUG: user_question from JSON: {user_question}")
 
     if not user_question:
         return jsonify({'message': 'No question provided'}), 400
     
-    files = { 
-        "file": (file.filename, file.stream, file.mimetype)
-    }
+#    files = { 
+#        "file": (file.filename, file.stream, file.mimetype)
+#    }
+#
+#    data = {
+#        "caller": "llm-service",
+#    }
+#
+#    
+#    resp = requests.post(
+#        "http://image-service:5002/process_user_image",
+#        files=files,
+#        data=data
+#    )
+#
+#    image_context = resp.json()
+   
 
-    data = {
-        "caller": "llm-service",
-    }
-
-    resp = requests.post(
-        "http://image-service:5002/process_user_image",
-        files=files,
-        data=data
-    )
-
-    image_context = resp.json()
-
-    # image_context = []
+    image_context = []
 
     # image_cpu_values = resp_json["cpu_values"]
-    # image_energy = resp_json["energy_joules"]
 
     # print("IMAGE CONTEXT:", image_context)
     # print("IMAGE_CPU_VALUES:", image_cpu_values)
-    # print("IMAGE ENERGY:", image_energy)
 
     # return jsonify({'message': resp.json()}), 200
 
@@ -362,7 +420,7 @@ def process_query():
 
     try:
 
-        post_data = {'question': user_question}
+        post_data = {'question': user_question}     # NOTE: add 'n': retrieval_n for model adaptability tests
 
         # search_url = "http://127.0.0.1:8000/search"
         search_url = "http://vector-db:8000/search"
@@ -377,11 +435,12 @@ def process_query():
 
         # Parse chunks
         permanent_chunks = response_as_json.get("permanent_chunks", [])
-        temp_chunks = response_as_json.get("temp_chunks", [])
+        #temp_chunks = response_as_json.get("temp_chunks", [])
         all_chunks = permanent_chunks # + temp_chunks
 
         print(f"PERMANENT CHUNKS: {permanent_chunks}")
-        print(f"TEMP CHUNKS: {temp_chunks}")
+        print(f"CHUNKS AMOUNT: {len(permanent_chunks)}")
+        #print(f"TEMP CHUNKS: {temp_chunks}")
 
         # if not all_chunks:
         #     return jsonify({'message': "No related info found for your question."}), 200
@@ -389,7 +448,7 @@ def process_query():
         # Form chunks for LLM
         db_result = "\n".join([f"{i+1}. {chunk}" for i, chunk in enumerate(all_chunks)])
 
-        print(f"DB_RESULS: {db_result}")
+        print(f"\nDB_RESULS: {db_result}\n")
 
         # return jsonify({'message': "OK"}), 200
 
@@ -397,11 +456,19 @@ def process_query():
         # db_result = "1. Car has two doors.\n2. Car is white."
 
         if define_model == "gemma":
-            llm_result = query_gemma(db_result, user_question, image_context, max_new_tokens=200)
+            llm_result = query_gemma(db_result, user_question, image_context, max_new_tokens=300)
         elif define_model == "phi":
-            llm_result = query_llm(generation_args, pipe, db_result, user_question, image_context)
+            llm_result = query_phi(generation_args, pipe, db_result, user_question, image_context)
         elif define_model == "llama2":
-            llm_result = query_llama2(db_result, user_question, image_context, max_new_tokens=256)
+            llm_result = query_llama2(db_result, user_question, image_context, max_new_tokens=300)  #265
+
+        # NOTE: GPU testing
+#        if define_model == "gemma":
+#            llm_result = run_inference(query_gemma, db_result, user_question, image_context, max_new_tokens=200)
+#        elif define_model == "phi":
+#            llm_result = run_inference(query_phi, generation_args, pipe, db_result, user_question, image_context)
+#        elif define_model == "llama2":
+#            llm_result = run_inference(query_llama2, db_result, user_question, image_context, max_new_tokens=256)
 
         # llm_result = "The color of the keyboard is black with white letters."
 
@@ -424,31 +491,31 @@ def process_query():
             logging.error(f"Failed to communicate with SA service: {e}")
             sa_result = {}
 
-        monitoring_ram = False
-        monitoring_cpu = False
-
-        # t.join()
-
-        end_time = time.time()
-        # meter.end()
-        duration = end_time - start_time
-
-        # energy_pkg = sum(meter.result.pkg) / 1_000_000
-        # energy_dram = sum(meter.result.dram or []) / 1_000_000
-        # energy_joules = energy_pkg + energy_dram
+#        monitoring_ram = False
+#        monitoring_disk = False
+#        monitoring_vram = False
+#
+#        t.join()
 
         # image_result = {
         #     "cpu_values": resp_json["cpu_values"],
         #     "ram_values": resp_json.get("ram_values", []),
-        #     "energy_joules": resp_json["energy_joules"],
-        #     "duration": resp_json.get("duration", 0),
         #     "result": resp_json["result"]
         # }
 
-        # save(image_result, cpu_values, ram_values, energy_joules, duration, run_id, prompt, mode, define_model, user_question, permanent_chunks)
+        # save(image_result, cpu_values, ram_values, duration, run_id, prompt, mode, define_model, user_question, permanent_chunks)
 
-        return jsonify({'message': llm_result,
-                        'model': define_model}), 200
+        end_time = time.time()
+        elapsed = end_time - start_time
+
+        node_name = os.environ.get("NODE_NAME", "NA")
+
+        return jsonify({
+            "message": llm_result,
+            "db_result": db_result,
+            "duration": elapsed,
+            "node_name": node_name
+        }), 200
 
     except Exception as e:
         logging.error(f"Error in process_query: {e}")
@@ -473,30 +540,42 @@ def process_query():
 #     return tokenizer.decode(output[0], skip_special_tokens=True)
 
 
-def query_gemma(context, question, image_context, max_new_tokens=200):
+def query_gemma(context, question, image_context, max_new_tokens=300):  #256, 512
     prompt = PROMPT.format(context=context, question=question, image_context=image_context)
+    logging.info(f"Gemma prompt: {prompt}")
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-    with torch.no_grad():
-        output = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
-            pad_token_id=tokenizer.eos_token_id
-        )
+    try:
+        with model_lock:
+            with torch.no_grad():
+                output = model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=True,
+                    temperature=0.5,
+                    top_p=0.9,
+                    pad_token_id=tokenizer.eos_token_id
+                )
+    except Exception as e:
+        import traceback
+        logging.error(f"Error in model.generate():\n{traceback.format_exc()}")
+        raise
+
+    logging.info(f"Response generated!")
 
     raw_output = tokenizer.decode(output[0], skip_special_tokens=True)
     return extract_answer(raw_output)
 
 
+'''
 def extract_answer(text):
     """
     Extract only the model's answer after 'Answer:' and clean it.
     Handles variations like capitalization, punctuation and lists.
     """
+    logging.info("Extracting answer from raw output...")
+
     # Split using flexible regex for variations like "Answer :", "ANSWER-", "answer:"
     parts = re.split(r"(?i)answer\s*[:\-–]\s*", text, maxsplit=1)
     if len(parts) < 2:
@@ -512,10 +591,33 @@ def extract_answer(text):
     answer = answer.strip(" \"'`")  # strip quotes and common wrappers
 
     return answer.strip()
+'''
 
 
+def extract_answer(text):
+    """
+    Extract only the model's answer after 'Answer:' and clean it.
+    Handles variations like capitalization, punctuation and lists.
+    """
+    # Split using flexible regex for variations like "Answer :", "ANSWER-", "answer:"
+    parts = re.split(r"(?i)answer\s*[:\-–]\s*", text, maxsplit=1)
+    if len(parts) < 2:
+        return text.strip()
+    
+    answer = parts[1].strip()
+    
+    # Stop at the next prompt section if the model repeated the template
+    # (e.g. if it hallucinated a new "Context:" or "Question:" block)
+    answer = re.split(r"(?i)\n\s*(context|question|instruction|system)\s*[:\-–]", answer)[0]
+    
+    # Remove wrapping quotes, bullets, markdown junk from the very first line only
+    answer = re.sub(r'^[\-\*\•\·]+\s*', '', answer)
+    answer = answer.strip(" \"'`")
+    
+    return answer.strip()
 
-def query_llama2(context, question, image_context, max_new_tokens=256):
+
+def query_llama2(context, question, image_context, max_new_tokens=300): #256
 
     x = 0
 
@@ -558,14 +660,20 @@ def query_llama2(context, question, image_context, max_new_tokens=256):
         """
 
 
-
     inputs = tokenizer(llama_prompt, return_tensors="pt")
+    
+# NOTE: FOR GPU TESTING:
+    # Move inputs to the same device as the model
+    device = next(model.parameters()).device
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+# ----------------------------------------------------------
 
     output_tokens = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
-        temperature=0.2,
-        do_sample=True
+        temperature=0.5,
+        do_sample=True,
+        top_p=0.9,
     )
 
     text = tokenizer.decode(output_tokens[0], skip_special_tokens=True)
@@ -584,11 +692,6 @@ def query_llama2(context, question, image_context, max_new_tokens=256):
             text = text[len(prefix):].strip()
 
     return text
-
-
-
-
-
 
 
 @app.route('/question_about_last_uploaded_file', methods=['POST'])
@@ -624,6 +727,7 @@ def question_about_last_uploaded_file():
 
 # ---------------
 
+'''
 # SA_MONITOR_URL = "http://127.0.0.1:6501/start_monitoring"
 SA_MONITOR_URL = "http://situational-awareness:6501/start_monitoring"
 
@@ -642,65 +746,70 @@ def format_bytes(size):
         n += 1
     return f"{size:.2f} {power_labels[n]}"
 
+'''
 
-def monitor_usage(interval=0):
-    global cpu_values, ram_values
-    global monitoring_ram, monitoring_cpu
+#def monitor_usage(interval=0):
+#    global ram_values, disk_values, vram_values
+#    global monitoring_ram, monitoring_disk, monitoring_vram
+#
+#    ram_values.clear()
+#    disk_values.clear()
+#    vram_values.clear()
+#
+#    last_print_time = time.time()
+#
+#    while monitoring_ram or monitoring_disk or monitoring_vram:
+#        if monitoring_ram:
+#            used_mem = fetch_used_memory()
+#            ram_values.append(used_mem)
+#        else:
+#            used_mem = None
+#
+#        if monitoring_disk:
+#            disk_usage = psutil.disk_usage('/')
+#            disk_values.append(disk_usage.percent)
+#
+#        if monitoring_vram:
+#            vram_usage = fetch_vram_usage()
+#            vram_values.append(vram_usage)
+#
+#        # print(f"used_mem:{used_mem}")
+#        # print(f"CPU:{cpu}")
+#
+#
+#        time.sleep(interval)
+#
+#
+#def fetch_used_memory():
+#    cmd = (
+#        "crictl --config=/dev/null "
+#        "--runtime-endpoint unix:///run/k3s/containerd/containerd.sock "
+#        "stats --output=table | "
+#        "awk 'NR>1 && $4 != \"\" {"
+#        "val=$4;"
+#        "gsub(/[^0-9.]/, \"\", val);"
+#        "if ($4 ~ /KiB/) sum+=val*1024;"
+#        "else if ($4 ~ /MiB|MB/) sum+=val*1024*1024;"
+#        "else if ($4 ~ /GiB|GB/) sum+=val*1024*1024*1024;"
+#        "} END { printf \"%.2f\", sum/1024/1024; }'"
+#    )
+#
+#    try:
+#        output = subprocess.check_output(cmd, shell=True, text=True, timeout=5).strip()
+#        if not output:
+#            return 0.0
+#        return float(output)
+#    except subprocess.TimeoutExpired:
+#        print("crictl stats timeout – skipped this cycle")
+#        return 0.0
+#    except subprocess.CalledProcessError as e:
+#        print(f"crictl stats failed: {e}")
+#        return 0.0
+#    except ValueError:
+#        print(f"Could not parse memory output: {output!r}")
+#        return 0.0
 
-    cpu_values.clear()
-    ram_values.clear()
-
-    last_print_time = time.time()
-    cpu = 0.0
-
-    while monitoring_ram or monitoring_cpu:
-        if monitoring_ram:
-            used_mem = fetch_used_memory()
-            ram_values.append(used_mem)
-        else:
-            used_mem = None
-
-        if monitoring_cpu:
-            cpu = psutil.cpu_percent(interval=None)
-            cpu_values.append(cpu)
-
-        # print(f"used_mem:{used_mem}")
-        # print(f"CPU:{cpu}")
-
-
-        time.sleep(interval)
-
-
-def fetch_used_memory():
-    cmd = (
-        "crictl --config=/dev/null "
-        "--runtime-endpoint unix:///run/k3s/containerd/containerd.sock "
-        "stats --output=table | "
-        "awk 'NR>1 && $4 != \"\" {"
-        "val=$4;"
-        "gsub(/[^0-9.]/, \"\", val);"
-        "if ($4 ~ /KiB/) sum+=val*1024;"
-        "else if ($4 ~ /MiB|MB/) sum+=val*1024*1024;"
-        "else if ($4 ~ /GiB|GB/) sum+=val*1024*1024*1024;"
-        "} END { printf \"%.2f\", sum/1024/1024; }'"
-    )
-
-    try:
-        output = subprocess.check_output(cmd, shell=True, text=True, timeout=5).strip()
-        if not output:
-            return 0.0
-        return float(output)
-    except subprocess.TimeoutExpired:
-        print("crictl stats timeout – skipped this cycle")
-        return 0.0
-    except subprocess.CalledProcessError as e:
-        print(f"crictl stats failed: {e}")
-        return 0.0
-    except ValueError:
-        print(f"Could not parse memory output: {output!r}")
-        return 0.0
-
-
+'''
 def start_sa_monitoring_SA():
     try:
         response = requests.post(SA_MONITOR_URL)
@@ -708,7 +817,7 @@ def start_sa_monitoring_SA():
         logging.info("Successfully started CPU/RAM monitoring in SA service.")
     except Exception as e:
         logging.error(f"Failed to start monitoring in SA service: {e}")
-
+'''
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5007, debug=False)
