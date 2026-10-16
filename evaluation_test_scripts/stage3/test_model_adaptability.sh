@@ -3,8 +3,8 @@
 # Sends test prompts to llm-text-gen-service and records the LLM response
 # and the retrieved DB chunks in a '#'-delimited CSV file.
 #
-# Usage:   ./run_benchmark.sh <cpu|gpu> <llama|gemma|phi>
-# Example: ./run_benchmark.sh gpu gemma
+# Usage:   ./test_model_adaptability.sh <cpu|gpu> <llama|gemma|phi>
+# Example: ./test_model_adaptability.sh gpu gemma
 #
 # Optional environment variables:
 #   LLM_URL          Endpoint of llm-text-gen-service (default below)

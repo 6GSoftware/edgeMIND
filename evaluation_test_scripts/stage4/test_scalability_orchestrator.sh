@@ -27,7 +27,7 @@
 #
 # ---------------------------------------------------------------------------
 # USAGE
-#   ./run_scalability_tests.sh <model>
+#   ./test_scalability_orchestrator.sh <model>
 #
 # Edit the CONFIG section below before running.
 # ---------------------------------------------------------------------------

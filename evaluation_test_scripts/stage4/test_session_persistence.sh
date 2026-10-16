@@ -2,8 +2,8 @@
 #
 # run_llm_tests.sh - benchmark an LLM endpoint with simple/medium/advanced prompts
 #
-# Usage:   ./run_llm_tests.sh <model> <url> <processor>
-# Example: ./run_llm_tests.sh llama xxx.xxx.xxx.xxx:yyyy GPU
+# Usage:   ./test_session_persistence.sh <model> <url> <processor>
+# Example: ./test_session_persistence.sh llama xxx.xxx.xxx.xxx:yyyy GPU
 #
 # Requires: bash >= 4.3, curl, jq
 
