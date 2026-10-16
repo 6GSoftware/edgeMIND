@@ -52,7 +52,6 @@ topic_metadata_with_names.txt
 topic_metadata_with_names.json
 
 # Files related to evaluation tests
-*.sh
 *.csv
 model_adaptability/
 latency_ground_sim_results/
@@ -61,6 +60,9 @@ session_persistence_results/
 K3s_manifests/dcgm*
 K3s_manifests/keda-scaledobject.yaml
 LLMquery-server-text/download_and_save_llama_chat.py
+crane.jpg
+test_files_old
+K3s_manifests/get_helm.sh
 
 # Other files and directories
 workflow_documentation.md
@@ -99,3 +101,7 @@ results
 hae.py
 permanent_metadata2.json
 temp_metadata2.json
+
+
+# Temporarily ignored files
+GPU_K3s_configure_instructions.md
