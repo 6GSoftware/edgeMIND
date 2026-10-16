@@ -2,6 +2,13 @@
 
 ## Set up the nodes and install K3s
 
+### Uninstall old k3s-agent
+
+Unistall a k3s-agent with this command:
+```bash
+/usr/local/bin/k3s-agent-uninstall.sh
+```
+
 ### 0. Give all machines a unique host name
 
 All the machines in the cluster must have unique host names. Check the host name of all machines with this command:
@@ -26,16 +33,16 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--flannel-backend=host-gw" K3S_
 
 Check that it was successfully installed with:
 ```bash
-sudo kubectl get nodes
+kubectl get nodes
 
-sudo kubectl get pods -A
+kubectl get pods -A
 ```
 
 You should see `STATUS=Ready` for the master node, and `Running` for the system pods.
 
 Lastly, run this on the master node and copy the entire output string:
 ```bash
-sudo cat /var/lib/rancher/k3s/server/node-token
+cat /var/lib/rancher/k3s/server/node-token
 ```
 
 The output is a token that is needed in joining the worker nodes to the cluster.
@@ -47,27 +54,34 @@ On each worker node, run:
 curl -sfL https://get.k3s.io | K3S_URL="https://<SERVER-IP>:6443" K3S_TOKEN="<CUSTOM-TOKEN>" sh -
 ```
 Replace `SERVER-IP` with the IP address of the master node machine, and `CUSTOM-TOKEN` with the token that you printed in the console in step 1.
+If you are adding a new node to an existing cluster, you can find the cluster token and master node IP from this file:
+```bash
+cat /etc/rancher/k3s/config.yaml
+```
 
 On master node, verify successfull installation with
 ```bash
-sudo kubectl get nodes
+kubectl get nodes
 ```
 
 You should now see `STATUS=Ready` for all nodes.
 
 ## Build images and set up the Docker registry
 
-### 3. Create a local Docker registry
+### 3. Create a local Docker registry (each node)
 
 Add the IP address (of the machine where you want the registry to live) + hostname mapping to `/etc/hosts` file on every node:
 ```bash
-sudo nano /etc/hosts
+nano /etc/hosts
 ```
 
-The format should be: `x.x.x.x registry.local`. 
+The format should be: 
+```bash
+x.x.x.x registry.local  # Replace x.x.x.x with actual IP address
+``` 
 Replace `x.x.x.x` with the actual IP address of the machine where you will have your registry.
 
-### 4. Configure Docker's daemon.json file
+### 4. Configure Docker's daemon.json file (on each node)
 
 Add this to the `/etc/docker/daemon.json` file to use HTTP instead of HTTPS:
 ```json
@@ -76,9 +90,15 @@ Add this to the `/etc/docker/daemon.json` file to use HTTP instead of HTTPS:
 }
 ```
 
+To modify the file, you must run:
+```bash
+nano /etc/docker/daemon.json
+```
+... or use some other text editor.
+
 Then, restart Docker daemon with:
 ```bash
-sudo systemctl restart docker
+systemctl restart docker
 ```
 
 ### 5. Run the registry container and push the images there
@@ -110,12 +130,12 @@ docker push registry.local:4000/audio-processing-service
 
 On **each node**, create this directory if it doesn't exist yet:
 ```bash
-sudo mkdir -p /etc/rancher/k3s
+mkdir -p /etc/rancher/k3s
 ```
 
 Then, edit (or create) this file: `/etc/rancher/k3s/registries.yaml`. To edit the file, open a text editor, for example:
 ```bash
-sudo nano /etc/rancher/k3s/registries.yaml
+nano /etc/rancher/k3s/registries.yaml
 ```
 
 In each `registries.yaml` file, add:
@@ -131,12 +151,12 @@ mirrors:
 After that restart the k3s service on **all master nodes and worker nodes**:
 On master node(s), run:
 ```bash
-sudo systemctl restart k3s
+systemctl restart k3s
 ```
 
 On worker nodes, run:
 ```bash
-sudo systemctl restart k3s-agent
+systemctl restart k3s-agent
 ```
 
 ## Creating and configuring the deployments
@@ -145,12 +165,12 @@ sudo systemctl restart k3s-agent
 
 If you want to deploy specific containers on specific nodes you can add labels to the nodes like this:
 ```bash
-sudo kubectl label node <NODE-NAME> <LABEL-KEY>=<LABEL-VALUE>
+kubectl label node <NODE-NAME> <LABEL-KEY>=<LABEL-VALUE>
 ```
 
 You get the names of the nodes by running:
 ```bash
-sudo kubectl get nodes -o wide
+kubectl get nodes -o wide
 ```
 
 Replace `<LABEl_KEY>` and `<LABEL-VALUE>` with any key-value pair.
