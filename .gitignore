@@ -85,6 +85,8 @@ toimivat
 permanent_metadata.json
 temp_metadata.json
 useful_stuff/
+send_request.sh
+upload.py
 
 # Files that include important or temporary data
 *.png
@@ -101,7 +103,6 @@ results
 hae.py
 permanent_metadata2.json
 temp_metadata2.json
-
 
 # Temporarily ignored files
 GPU_K3s_configure_instructions.md
