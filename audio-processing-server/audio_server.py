@@ -1,8 +1,6 @@
-import time
 from flask import Flask, request
 import os
 import threading
-import socket
 import logging
 import requests
 from audio_processing import process_audio_files
@@ -11,8 +9,10 @@ import multiprocessing as mp
 
 logging.basicConfig(level=logging.INFO)
 
-#HOST = "situational_awareness_server"
-HOST = "edgemind-situational-awareness-server"
+IN_K3S = os.path.exists("/var/run/secrets/kubernetes.io/serviceaccount/token")
+
+POD_NAME = os.getenv("POD_NAME", "unknown-pod")
+NODE_NAME = os.getenv("NODE_NAME", "unknown-node")
 
 PORT = 6500
 
@@ -22,7 +22,7 @@ BASE_DIRECTORY = "./"
 AUDIO_DIRECTORY = os.path.join(BASE_DIRECTORY, "Audio/")
 os.makedirs(AUDIO_DIRECTORY, exist_ok=True)
 
-MONITOR_URL = "http://host.docker.internal:5006/status"
+SA_URL = "http://situational-awareness:6501/process_extracted_texts"
 
 app = Flask(__name__)
 
@@ -33,15 +33,6 @@ def process_file(**kwargs):
     # Process step 2: Extract text from the file
     logging.info(f"{TAG} Processing audio file...")
     processed_file_content = process_audio_files(file_name)
-
-#    try:
-#        res = requests.post(MONITOR_URL, json={
-#            "state": "stop",
-#            "service-name": "edgemind-audio-service"
-#        }, timeout=2)
-#        logging.info(f"Started monitoring: {res.json()}")
-#    except Exception as e:
-#        logging.warning(f"Monitoring service not available: {e}")
 
     send_to_extracted_text_processing(processed_file_content)
 
@@ -69,18 +60,6 @@ def save_file(file_name, file):
 def upload_file():
     """Handle http POST request from the client and receive a file."""
 
-#    start_time = time.time()
-#    logging.info("\nSTART TIME: " + str(start_time) + "\n")
-#
-#    try:
-#        res = requests.post(MONITOR_URL, json={
-#            "state": "start",
-#            "service-name": "edgemind-audio-service"
-#        })
-#        logging.info("Started monitoring:", res.json())
-#    except Exception as e:
-#        logging.info("Failed to start monitoring:", e)
-
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
 
@@ -104,13 +83,9 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-        #url = "http://situational_awareness_server:6501/process_extracted_texts"
-        url = "http://edgemind-situational-awareness-server:6501/process_extracted_texts"
-
-
         payload = {"data": processed_file_content}
 
-        response = requests.post(url, json=payload)
+        response = requests.post(SA_URL, json=payload)
 
         if response.ok:
             logging.info(f"{TAG} Response from the processor: {response.json()}")

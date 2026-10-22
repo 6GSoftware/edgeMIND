@@ -6,7 +6,7 @@ import time
 
 AUDIO_DIR = "./Audio"
 
-DAYS_OLD = 1    #TODO: put here 10, after testing and debugging
+DAYS_OLD = 1    #NOTE: Modify to your liking
 SLEEP_INTERVAL = 86400
 
 

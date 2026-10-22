@@ -1,4 +1,4 @@
-# Requirements from image-service. TODO: Check if there is some unnecessary
+# Requirements from image-service.
 Flask==3.1.0
 gunicorn==23.0.0
 pillow==10.4.0

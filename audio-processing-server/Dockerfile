@@ -1,19 +1,21 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-
-# Install system dependencies in one RUN to reduce layers
-RUN apt-get update && apt-get install -y git ffmpeg && \
-    pip install --no-cache-dir -r requirements.txt && \
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git ffmpeg build-essential && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-#COPY . .
-#RUN chmod +x start.sh
+# Python dependencies
+COPY requirements.txt .
+RUN echo "setuptools<81" > /constraints.txt && \
+    PIP_CONSTRAINT=/constraints.txt pip install --no-cache-dir -r requirements.txt
 
-#ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+#COPY file_management.py /app/
+COPY audio_server.py /app/
+COPY audio_processing.py /app/
+COPY Audio /app/Audio/
 
-#CMD ["python", "audio_server.py"]
-#CMD ["gunicorn", "--preload", "-w", "1", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5003", "audio_server:app"]
-CMD ["sh", "./start.sh"]
+CMD ["python", "audio_server.py"]
+#CMD ["sh", "./start.sh"]
