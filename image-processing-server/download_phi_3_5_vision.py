@@ -13,22 +13,26 @@ First, it checks if the model and processor are already saved locally in the './
 from transformers import AutoModelForCausalLM, AutoProcessor
 import os
 import logging
+import torch
 
 logger = logging.getLogger(__name__)
 
-# Check if the model and processor are already saved locally.
-if os.path.exists("./Phi-3.5-vision"):
-    model_source = "./Phi-3.5-vision"
+
+# Check if the model and processor are already saved locally
+if os.path.exists("./phi_3_5_vision"):
+    model_source = "./phi_3_5_vision"
+    logger.info("Loading model from local cache...")
 else:
     model_source = "microsoft/Phi-3.5-vision-instruct"
+    logger.info("Downloading model from HuggingFace...")
 
-#Load the model
+
+# Load the model
 model = AutoModelForCausalLM.from_pretrained(
     model_source,
-    device_map="cpu",
+    device_map="auto",
     trust_remote_code=True,
-    torch_dtype="auto",
-    _attn_implementation='eager'
+    _attn_implementation='eager',
 )
 
 #Load the processor
@@ -43,8 +47,17 @@ if model_source == "microsoft/Phi-3.5-vision-instruct":
 
     processor.chat_template = processor.tokenizer.chat_template
 
-    model.save_pretrained("./Phi-3.5-vision", safe_serialization=False)
-    processor.save_pretrained("./Phi-3.5-vision")
+    processor.save_pretrained("./phi_3_5_vision")
+    original_model = AutoModelForCausalLM.from_pretrained(
+        "microsoft/Phi-3.5-vision-instruct",
+        trust_remote_code=True,
+        torch_dtype=torch.float16,
+    )
+    original_model.save_pretrained("./phi_3_5_vision", safe_serialization=False)
+
+    del original_model  # free memory after saving
+
+    logger.info("Original model weights cached locally.")
     logging.info("Model loaded and saved!")
-else:
-    logging.info("Model loaded!")
+
+logging.info("Model loaded!")

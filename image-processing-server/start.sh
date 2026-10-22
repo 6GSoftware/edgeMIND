@@ -4,4 +4,5 @@
 python3 /app/file_management.py &
 
 # Start the main program, i.e. audio file processing program (foreground so container stays alive)
-gunicorn --preload -w 4 --threads 1 --timeout 3600 -b 0.0.0.0:5002 image_server:app
+#gunicorn --preload -w 4 --threads 1 --timeout 3600 -b 0.0.0.0:5002 image_server:app
+python image_server.py

@@ -12,85 +12,97 @@ processed_images.txt file to prevent processing the same file again.
 
 from PIL import Image
 import os
-#from transformers import AutoModelForCausalLM, AutoProcessor
 import logging
 
 logging.basicConfig(level=logging.INFO)
-
-#from dotenv import load_dotenv
-
-# Loads the environment variables from the .env file
-#load_dotenv()
 
 from download_phi_3_5_vision import model, processor
 
 TAG = "image_processing:  "
 
-# Define the folder containing images and the output text file
 image_folder = r'./Pictures'
 
-combined_text_file = './emultimodal_extracted_data.txt'
 
+def process_image_files(image=None, filename=None):
+    """
+    Processes an image either from:
+    - a PIL Image object (`image`)
+    - or a filename (`filename`) located in `image_folder`
+    """
 
-def process_image_files(new_file):
+    if isinstance(image, str) and filename is None:
+        filename = image
+        image = None
 
-    # Process each image individually
-    if new_file.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):  # Add more image types if needed
-        file_path = os.path.join(image_folder, new_file)
+    # New way: image is a PIL Image object
+    if image is not None:
+        new_file = filename or "uploaded_image"
+        logging.info(f"{TAG} Processing image directly (PIL object)")
 
-        # Open the image
+    # Old way: filename is provided
+    elif filename is not None:
+        file_path = os.path.join(image_folder, filename)
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(file_path)
+
         image = Image.open(file_path)
+        new_file = filename
+        logging.info(f"{TAG} Processing image from disk: {file_path}")
 
-        # Always use image_id 1 for single images
-        placeholder = f"<|image_1|>\n"  # Set the image_id to 1 for each image
+    else:
+        raise ValueError("You must provide either a PIL image or a filename")
 
-        # Define the message for summarization
-        messages = [
-            {"role": "user", 
-        "content": f"{placeholder}Extract all details from the image exactly as they appear. Then, create a concise bulleted list summarizing the key points."}
-        ]
+    # Always use image_id 1 for single images
+    placeholder = f"<|image_1|>\n"
 
-        # Prepare the prompt
-        prompt = processor.tokenizer.apply_chat_template(
-            messages, 
-            tokenize=False, 
-            add_generation_prompt=True
-        )
-
-        # Preprocess the input
-        inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
-
-        # Define generation arguments
-        generation_args = {
-            "max_new_tokens": 1000,
-            "temperature": 0.0,
-            "do_sample": False,
+    # Define the message for summarization
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"{placeholder}Extract all details from the image exactly as they appear. "
+                "Then, create a concise bulleted list summarizing the key points."
+            )
         }
+    ]
 
-        # Generate the output
-        generate_ids = model.generate(
-            **inputs,
-            eos_token_id=processor.tokenizer.eos_token_id,
-            **generation_args
-        )
+    # Prepare the prompt
+    prompt = processor.tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
 
-        # Remove input tokens from generated IDs
-        generate_ids = generate_ids[:, inputs['input_ids'].shape[1]:]
+    # Preprocess the input
+    inputs = processor(prompt, images=[image], return_tensors="pt").to("cpu")
 
-        # Decode the generated IDs into text
-        response = processor.batch_decode(
-            generate_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False
-        )[0]
+    # Define generation arguments
+    generation_args = {
+        "max_new_tokens": 1000,
+        "temperature": 0.0,
+        "do_sample": False,
+    }
 
-        processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
+    # Generate the output
+    generate_ids = model.generate(
+        **inputs,
+        eos_token_id=processor.tokenizer.eos_token_id,
+        **generation_args
+    )
 
-        # Save the response to the output file
-        with open(combined_text_file, 'a', encoding='utf-8') as f:
-            f.write(f"Response for {new_file}:\n")  # Store the image file name
-            f.write(response + "\n\n")
+    # Remove input tokens from generated IDs
+    generate_ids = generate_ids[:, inputs['input_ids'].shape[1]:]
 
-        logging.info(f"{TAG} Processed and saved response for {new_file}")
+    # Decode the generated IDs into text
+    response = processor.batch_decode(
+        generate_ids,
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False
+    )[0]
 
-        return processed_file_content
+    processed_file_content = f"Response for {new_file}:\n" + response + "\n\n"
+
+    logging.info(f"{TAG} Processed and saved response for {new_file}")
+
+    return processed_file_content
