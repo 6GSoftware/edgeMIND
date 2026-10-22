@@ -23,8 +23,6 @@ TAG = "pdf_processing:  "
 # Set the folder path for the PDF files
 pdf_folder = "./pdfs"
 
-combined_text_file = './emultimodal_extracted_data.txt'
-
 LLAMAPARSE_API_KEY = os.environ.get("LLAMAPARSE_API_KEY", None)
 if LLAMAPARSE_API_KEY is None: 
     raise IOError("API key missing")

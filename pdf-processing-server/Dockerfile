@@ -6,7 +6,12 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-#COPY . .
+# Copy project files
+COPY pdfs /app/pdfs
+#COPY file_management.py /app/
+COPY pdf_processing.py /app/
+COPY pdf_server.py /app/
+COPY .env /app/
 
-#CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:5004", "pdf_server:app"]
-CMD ["sh", "./start.sh"]
+#CMD ["sh", "./start.sh"]
+CMD ["python", "pdf_server.py"]

@@ -1,8 +1,6 @@
-import time
 from flask import Flask, request
 import os
 import threading
-import socket
 import logging
 import requests
 
@@ -10,8 +8,6 @@ logging.basicConfig(level=logging.INFO)
 
 from pdf_processing import process_pdf_files
 
-#HOST = "localhost"      #NOTE use when running outside of container
-HOST = "situational_awareness_server"
 PORT = 6500
 
 TAG = "pdf_service: "
@@ -20,7 +16,7 @@ BASE_DIRECTORY = "./"
 PDF_DIRECTORY = os.path.join(BASE_DIRECTORY, "pdfs/")
 os.makedirs(PDF_DIRECTORY, exist_ok=True)
 
-MONITOR_URL = "http://host.docker.internal:5006/status"
+SA_URL = "http://situational-awareness:6501/process_extracted_texts"
 
 app = Flask(__name__)
 
@@ -30,15 +26,6 @@ def process_file(**kwargs):
     # Extract text from the file and save the exracted text to appropriate file.
     logging.info(f"{TAG} Processing PDF file...")
     processed_file_content = process_pdf_files(file_name)
-
-    '''try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "stop",
-            "service-name": "pdf-service"
-        }, timeout=2)
-        logging.info(f"Started monitoring: {res.json()}")
-    except Exception as e:
-        logging.warning(f"Monitoring service not available: {e}")'''
 
     logging.info(f"DONE")
 
@@ -70,20 +57,6 @@ def save_file(file_name, file):
 
 @app.route('/upload_pdf', methods=['POST'])
 def upload_file():
-    """Handle http POST request from the client and receive a file."""
-
-    '''start_time = time.time()
-    logging.info("\nSTART TIME: " + str(start_time) + "\n")
-
-    try:
-        res = requests.post(MONITOR_URL, json={
-            "state": "start",
-            "service-name": "pdf-service"
-        })
-        logging.info("Started monitoring:", res.json())
-    except Exception as e:
-        logging.info("Failed to start monitoring:", e)'''
-
     if 'file' not in request.files:
         return {'message': 'No file part'}, 400
 
@@ -107,11 +80,9 @@ def upload_file():
 
 def send_to_extracted_text_processing(processed_file_content):
     try:
-        url = "http://situational_awareness_server:6501/process_extracted_texts"
-
         payload = {"data": processed_file_content}
 
-        response = requests.post(url, json=payload)
+        response = requests.post(SA_URL, json=payload)
 
         if response.ok:
             logging.info(f"{TAG} Response from the processor: {response.json()}")
@@ -122,5 +93,5 @@ def send_to_extracted_text_processing(processed_file_content):
         logging.error(f"{TAG} Connection failed: {e}")
 
 
-#if __name__ == '__main__':
-#    app.run(host="0.0.0.0", port=5004)
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=5004)
