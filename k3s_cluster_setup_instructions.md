@@ -1,8 +1,31 @@
 # Set up a K3s cluster for the EdgeMIND framework
 
+These instructions have been used to successfully set up a K3s cluster for the EdgeMIND system on three Dell machines (one controller node and two worker nodes) and two Lenovo machines (Lenovo ThinkBook and Lenovo Legion, both worker nodes), each with the following specs:
+
+- **OS**: Ubuntu 24.04.4 LTS (64-bit) or Ubuntu 24.04.2 LTS (64-bit)
+- **Memory**: 16+ GB
+- **Disk capacity**: 512+ GB
+
+## Set up the EdgeMIND system
+
+### Create/obtain and initialize required files and directories
+
+The following services require initialization of some files and/or directories:
+- `edgeMIND-vector-db-server`: requires permanent and temporary metadata JSON-files. **Instructions**: [vector db `README.md`](edgeMIND-vector-db-server/README.md).
+- `pdf-processing-server`: requires a `.env` file. **Instructions**: [pdf processing server `README.md`](pdf-processing-server/README.md).
+
+### Obtain required API keys
+
+The `pdf-processing-server` service requres an API key for the LlamaParse model. The api key is stored in a `.env` file like this: `LLAMAPARSE_API_KEY=<your-api-key>`. **Instructions**: [pdf processing server `README.md`](pdf-processing-server/README.md).
+
+### Additional required setup
+
+The `LLMquery-server-text` service requires a local LLM model and the model setup in the code. **Instructions**: [llm query server `README.md`](LLMquery-server-text/README.md).
+
+
 ## Set up the nodes and install K3s
 
-### 0. Give all machines a unique host name
+### Give all machines a unique host name
 
 All the machines in the cluster must have unique host names. Check the host name of all machines with this command:
 ```bash
@@ -16,7 +39,7 @@ hostnamectl set-hostname <NEW-HOSTNAME>
 
 **You may need to use `sudo` in front of the commands.**
 
-### 1. Install K3s on master node
+### Install K3s on master node
 
 Run this command on the master node machine:
 
@@ -40,7 +63,7 @@ sudo cat /var/lib/rancher/k3s/server/node-token
 
 The output is a token that is needed in joining the worker nodes to the cluster.
 
-### 2. Install K3s on the worker nodes
+### Install K3s on the worker nodes
 
 On each worker node, run:
 ```bash
@@ -57,7 +80,7 @@ You should now see `STATUS=Ready` for all nodes.
 
 ## Build images and set up the Docker registry
 
-### 3. Create a local Docker registry
+### Create a local Docker registry
 
 Add the IP address (of the machine where you want the registry to live) + hostname mapping to `/etc/hosts` file on every node:
 ```bash
@@ -67,7 +90,7 @@ sudo nano /etc/hosts
 The format should be: `x.x.x.x registry.local`. 
 Replace `x.x.x.x` with the actual IP address of the machine where you will have your registry.
 
-### 4. Configure Docker's daemon.json file
+### Configure Docker's daemon.json file
 
 Add this to the `/etc/docker/daemon.json` file to use HTTP instead of HTTPS:
 ```json
@@ -81,7 +104,7 @@ Then, restart Docker daemon with:
 sudo systemctl restart docker
 ```
 
-### 5. Run the registry container and push the images there
+### Run the registry container and push the images there
 
 If you haven't already built the images, do it now.
 
@@ -94,26 +117,26 @@ Here we map port 4000 to port 5000, because the registry uses by default port 50
 
 Tag the images and push them to the local registry:
 ```bash
-docker tag <IMAGE-NAME> registry.local:4000/<IMAGE-NAME>
+docker tag <IMAGE-NAME> registry.local:4000/<IMAGE-NAME>:latest
 
-docker push registry.local:4000/<IMAGE-NAME>
+docker push registry.local:4000/<IMAGE-NAME>:latest
 ```
 
 example:
 ```bash
-docker tag audio-processing-service registry.local:4000/audio-processing-service
+docker tag audio-processing-service registry.local:4000/audio-processing-service:latest
 
-docker push registry.local:4000/audio-processing-service
+docker push registry.local:4000/audio-processing-service:latest
 ```
 
-### 6. Create and edit registries.yaml files
+### Create and edit registries.yaml files
 
 On **each node**, create this directory if it doesn't exist yet:
 ```bash
 sudo mkdir -p /etc/rancher/k3s
 ```
 
-Then, edit (or create) this file: `/etc/rancher/k3s/registries.yaml`. To edit the file, open a text editor, for example:
+Then, edit (or create) this file: `/etc/rancher/k3s/registries.yaml`. To edit the file, open **any** text editor, for example:
 ```bash
 sudo nano /etc/rancher/k3s/registries.yaml
 ```
@@ -141,7 +164,7 @@ sudo systemctl restart k3s-agent
 
 ## Creating and configuring the deployments
 
-### 7. (Optional) label nodes for selective deployment
+### Label nodes for selective deployment (optional)
 
 If you want to deploy specific containers on specific nodes you can add labels to the nodes like this:
 ```bash
@@ -155,50 +178,45 @@ sudo kubectl get nodes -o wide
 
 Replace `<LABEl_KEY>` and `<LABEL-VALUE>` with any key-value pair.
 
-### 8. Create k3s manifest files
+### Download and save llm models on each node that runs the llm-text-gen-service
 
-Create a folder (for example `k3s` or `manifest`) anywhere on the master node machine to store the manifest files (needed for deployment of the services).
+Download and save your preferred llm models locally on each node that you are planning to run the `llm-text-gen-service` on.
 
-For each service you intend to deploy, create a manifest file (yaml format), for example, with the help of this template:
+Download and save the model(s) to this directory: `/var/lib/llm-models/models/`, e.g. `/var/lib/llm-models/models/phi3`
+
+### Deploy the EdgeMIND system
+
+Deploy the EdgeMIND system by applying the K3s manifests for each service. The manifest files can be found in `K3s_manifests`. Before applying the manifests, you can specify the nodes to deploy the services on by adding the node names to the nodeAffinity section in each manifest file, for example, like this:
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
-metadata:
-  name: service-x   # replace with a custom name for the service
+...
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: service-x    # here (and below) use the same name as above for metadata.name
+  ...
   template:
-    metadata:
-      labels:
-        app: service-x
-    spec:
-      affinity:
-        podAntiAffinity:
+      ...
+      spec:
+        ...
+        nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app: service-x
-            topologyKey: "kubernetes.io/hostname"
-      nodeSelector:
-        <KEY>: <VALUE>  # Here put any label + its value you have given to any node(s)
-      containers:
-      - name: service-x
-        image: registry.local:4000/<container-image>    # replace with the name of your service's container image
-        ports:
-        - containerPort: 1000   # replace with the container's internal port
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: service-x
-spec:
-  selector:
-    app: service-x
-  ports:
-  - port: 1000          # replace with the container's external port
-    targetPort: 1000    # replace with the container's internal port
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                # Add the values for the label with the key specified above
+                operator: In
+                values:
+                - node1   # Example value
+                - mynode  # Example value
+```
 
+
+Whenever you update the code and/or the manifest file(s), run these commands to apply the changes:
+
+```bash
+cd /path/to/edgeMIND/project/K3s_manifests
+
+# Apply manifest
+k3s kubectl apply -f <manifest-file.yaml>   # e.g. llm-text-gen-service.yaml
+# Restart K3s deployment
+k3s kubectl rollout restart deployment <name-of-deployment>   # e.g. llm-text-gen-service
 ```
