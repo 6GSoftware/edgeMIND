@@ -1,32 +1,53 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vector-db-server
+  name: vector-db
 spec:
-  replicas: 1
+  replicas: 1 # Modify
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
-      app: vector-db-server
+      app: vector-db
   template:
     metadata:
       labels:
-        app: vector-db-server
+        app: vector-db
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - <add node name> # Modify
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: vector-db
+            topologyKey: kubernetes.io/hostname
       containers:
-      - name: vector-db-server
-        image: registry.local:4000/edgemind-vector_db_server
+      - name: vector-db
+        image: registry.local:4000/vector-db:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
-      nodeSelector:
-        computing-power: medium
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: vector-db-server
+  name: vector-db
 spec:
   selector:
-    app: vector-db-server
+    app: vector-db
+  type: NodePort
   ports:
   - port: 8000
     targetPort: 8000
+    nodePort: 30800

@@ -3,7 +3,9 @@ kind: Deployment
 metadata:
   name: llm-text-gen-service
 spec:
-  replicas: 1
+  replicas: 1   # Modify
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: llm-text-gen-service
@@ -13,27 +15,61 @@ spec:
         app: llm-text-gen-service
     spec:
       affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - llm-text-gen-service
+                topologyKey: kubernetes.io/hostname 
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: computing-power
+              - key: kubernetes.io/hostname
                 operator: In
                 values:
-                - high 
+                - <add node name> # Modify
+
       containers:
       - name: llm-text-gen-service
-        image: registry.local:4000/edgemind-llm_query_server_text
+        image: registry.local:4000/llm-text-gen-service:latest
         ports:
-        - containerPort: 5000
+        - containerPort: 5007
+
+        volumeMounts:
+
+        - name: crictl-bin
+          mountPath: /usr/local/bin/crictl
+        - name: llm-models
+          mountPath: /models
+          readOnly: true
+
+      volumes:
+      - name: crictl-bin
+        hostPath:
+          path: /var/lib/rancher/k3s/data/current/bin/crictl
+          type: File
+
+      - name: llm-models
+        hostPath:
+          path: /var/lib/llm-models/models
+          type: Directory
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: llm-text-gen-service
 spec:
+  type: NodePort
+  externalTrafficPolicy: Cluster
   selector:
     app: llm-text-gen-service
   ports:
-  - port: 5000
-    targetPort: 5000
+  - port: 5007
+    targetPort: 5007
+    nodePort: 30500

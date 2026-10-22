@@ -1,39 +1,63 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: edgemind-situational-awareness-server
+  name: situational-awareness
 spec:
-  replicas: 1
+  replicas: 1 # Modify
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
-      app: edgemind-situational-awareness-server
+      app: situational-awareness
   template:
     metadata:
       labels:
-        app: edgemind-situational-awareness-server
+        app: situational-awareness
     spec:
       affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app: edgemind-vector-db-server
-            topologyKey: "kubernetes.io/hostname"
-      # nodeSelector:
-      #   computing-power: medium
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - <add node name> # Modify
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: situational-awareness
+              topologyKey: kubernetes.io/hostname
       containers:
-      - name: edgemind-situational-awareness-server
-        image: registry.local:4000/edgemind-situational_awareness_server:latest
+      - name: situational-awareness
+        image: registry.local:4000/situational-awareness:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 6501
+        volumeMounts:
+        - name: edgemind-data
+          mountPath: /data
+          readOnly: true
+
+      volumes:
+      - name: edgemind-data
+        hostPath:
+          path: /var/lib/edgemind
+          type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: edgemind-situational-awareness-server
+  name: situational-awareness
 spec:
+  type: NodePort
   selector:
-    app: edgemind-situational-awareness-server
+    app: situational-awareness
   ports:
   - port: 6501
     targetPort: 6501
+    nodePort: 30501
