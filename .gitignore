@@ -22,16 +22,22 @@ Phi-3.5-vision
 /edgeMIND-vector-db-server/multimodal_faiss_index_2.index
 /edgeMIND-vector-db-server/topic_metadata_with_names_2.txt
 
+/edgeMIND-vector-db-server/permanent_metadata.json
+/edgeMIND-vector-db-server/permanent_metadata2.json
+/edgeMIND-vector-db-server/temp_metadata.json
+/edgeMIND-vector-db-server/vector_db_server_test.py
+
 temp_faiss_index.index
 temp_metadata.txt
 
 # Files containing environment variabes
 /LLMquery-server-text/.env
 
-# The LLM model files
+# The LLM model and other model files
 **/saved_LLM_model/
 /Input-side-server/Phi-3.5-vision/
 /LLMquery-server-text/models
+image-processing-server/phi_3_5_vision
 
 # From Input-side-server 
 /Input-side-server/__pycache__
@@ -61,6 +67,8 @@ anskun filut
 data_files_for_reset
 locustfile.py
 /traefik
+useful_stuff
+test_files_old
 
 # Files that include important or temporary data
 *.png
@@ -72,3 +80,19 @@ Audio
 pdfs
 Pictures
 RU_test_result_files
+send_request.sh
+upload.py
+
+# Evaluation test result files and test session specific files
+scalability_results
+session_persistence_results
+model_adaptability
+latency_ground_sim_results
+crane.jpg
+K3s_manifests/dcgm-exporter.yaml
+K3s_manifests/dcgm-servicemonitor.yaml
+K3s_manifests/get_helm.sh
+K3s_manifests/keda-scaledobject.yaml
+
+# Temporarily ignored files
+GPU_K3s_configure_instructions.md
