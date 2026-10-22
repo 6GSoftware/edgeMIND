@@ -10,7 +10,7 @@ How this module works:
 
 import nltk
 import re
-from situational_awareness_faiss import send_new_data_to_database, send_llm_result_to_temp_database
+from situational_awareness_faiss import send_new_data_to_database
 import logging
 from flask import Flask, request, jsonify
 
@@ -19,8 +19,9 @@ logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
-HOST = "0.0.0.0"
 TAG = "extracted_text_processing:  "
+
+VECTOR_DB_URL_SEARCH = "http://vector-db:8000/search"
 
 pre_processed_text_file_path = './Pre_processed_text.txt'
 
@@ -29,6 +30,12 @@ try:
 except LookupError:
     logging.info("[NLTK] 'punkt' not found. Downloading now...")
     nltk.download('punkt_tab')
+
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
+
 
 
 def preprocess_sentence(sentence):
@@ -42,7 +49,6 @@ def process_extracted_texts(file_content):
 
     # Tokenize sentences using nltk's sentence tokenizer
     sentences = nltk.tokenize.sent_tokenize(file_content)
-    #sentences = nltk.tokenize.sent_tokenize(text_data)
 
     # Preprocess each sentence: lowercase and remove extra spaces
     cleaned_sentences = [preprocess_sentence(sentence) for sentence in sentences]
@@ -52,72 +58,46 @@ def process_extracted_texts(file_content):
         for sentence in cleaned_sentences:
             output_file.write(f"{sentence}\n")
             processed_file_content = processed_file_content + f"{sentence}\n"
-            #output_file.write(f"Embedding: {np.array2string(embedding, precision=4, separator=',')}\n\n")
 
     logging.info(f"{TAG} Cleaned sentences saved to {pre_processed_text_file_path}")
 
     return processed_file_content
 
 
-
-@app.route('/process_generated_response', methods=['POST'])
-def handle_LLM_generated_response():
-    try:
-        req_data = request.json
-        llm_result = req_data["data"]
-
-        if not llm_result:
-            logging.info(f"{TAG} No data received.")
-            return jsonify({"status": "error", "message": "No data received"}), 400
-
-        logging.info(f"Received from llm server\n:{llm_result}\n\n")
-
-        llm_result_str = preprocess_sentence(str(llm_result))
-        llm_result_str = llm_result_str.replace("\n", " ")
-        logging.info("llm_result pre processed: " + llm_result_str)
-
-        # Save embeddings to a .txt file
-        with open(pre_processed_text_file_path, 'a', encoding='utf-8') as output_file:
-            output_file.write(llm_result_str)
-
-        #processed_gen_response_content = process_extracted_texts(llm_result)
-        #logging.info("Pre processed generated response: " + processed_gen_response_content)
-
-        #processed_gen_response_content = processed_gen_response_content.replace("\n", " ")
-        #logging.info("Pre processing round 2 result: " + processed_gen_response_content)
-
-        send_llm_result_to_temp_database(llm_result_str)
-
-        return jsonify({"status": "success", "message": "Data processed"})
-
-    except Exception as e:
-        logging.error(f"{TAG} Error while processing: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
 @app.route('/process_extracted_texts', methods=['POST'])
 def handle_extracted_texts():
     try:
         # Extract data from the HTTP request
-        processed_file_contents = request.get_json().get("data", "")
+        data = request.get_json()
+
+        processed_file_contents = data.get("data", "")
+        print(f"{TAG} Received data: {processed_file_contents}")
 
         if not processed_file_contents:
-            logging.info(f"{TAG} No data received.")
+            print(f"{TAG} No data received.")
             return jsonify({"status": "error", "message": "No data received"}), 400
 
-        logging.info(f"{TAG} AFTER: {processed_file_contents}")
+        print(f"{TAG} AFTER: {processed_file_contents}")
 
         processed_file_contents = process_extracted_texts(processed_file_contents)
 
-        logging.info(f"{TAG} BEFORE: {processed_file_contents}")
+        print(f"{TAG} BEFORE: {processed_file_contents}")
 
-        send_new_data_to_database([
-            line + '\n' for line in processed_file_contents.split('\n') if line.strip()
-        ])
+        database = "temp"
+        print(f"{TAG} Sending processed data to database: {database}")
 
-        return jsonify({"status": "success", "message": "Data processed"})
+        processed_file_contents = [line + '\n' for line in processed_file_contents.split('\n') if line.strip()]
+        print(f"{TAG} Processed file contents split into {len(processed_file_contents)} sentences.")
+        print(f"{TAG} First 2 sentences: {processed_file_contents[:2]}")
+
+        send_new_data_to_database(processed_file_contents, database)
+
+        return jsonify({"status": "ok", "message": "Extracted texts processed and sent to database"}), 200
 
     except Exception as e:
-        logging.error(f"{TAG} Error while processing: {e}")
+        print(f"{TAG} Error while processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+        
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=6501, debug=False)

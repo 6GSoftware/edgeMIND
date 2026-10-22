@@ -6,6 +6,14 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-#COPY . .
+RUN apt-get update && apt-get install -y curl tar && rm -rf /var/lib/apt/lists/*
 
-CMD ["gunicorn", "--preload", "-w", "4", "--threads", "1", "--timeout", "3600", "-b", "0.0.0.0:6501", "extracted_text_processing:app"]
+COPY . .
+
+EXPOSE 6501
+
+ENV PYTHONUNBUFFERED=1
+
+RUN mkdir -p /results
+
+CMD ["python", "extracted_text_processing.py"]
