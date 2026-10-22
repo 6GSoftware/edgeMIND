@@ -1,84 +1,50 @@
-# edgeMIND Framework
-This is the repository for the edgeMIND framework. The edgeMIND framework is divided into three main parts: the Input layer, the Output layer and the Database layer.
+# EdgeMIND Framework
 
-The Input layer is responsible for processing new files that the users upload to the system. The users can upload the files (which can be audio, image or pdf files) by using a dedicated Android app. The Input side is also responsible for applying the RAG and situational awareness to the data extracted from the uploaded files and for the responses that are generated in the Output layer.
+This is the repository for the **EdgeMIND** framework [[1]](#1). The EdgeMIND framework is divided into three main parts: the **Input layer**, the **Output layer** and the **Database layer**.
 
-The Output layer is responsible for receiving a question from a user, and generating a response with a language model for the user using information that is retrieved from the vector database. The users can send the questions through a dedicated Android app.
+The **Input layer** is responsible for processing new files that the users upload to the system. In the current EdgeMIND system, users can upload **audio, image or pdf** files. The Input side is also responsible for applying situational awareness (topic modeling) to the data extracted from the uploaded files and for the responses that are generated in the Output layer. In essence, each uploaded file is processed with some model that extracts the information from the file into text format. In the situational awareness service, the extracted text is divided into chunks, and each chunks gets generated a topic, or alternatively they get assigned an existing topic that matches the content of the text chunk. The Input layer consists of the following services:
+- [`audio-processing-server`](audio-processing-server)
+- [`image-processing-server`](image-processing-server)
+- [`pdf-processing-server`](pdf-processing-server)
+- [`situational-awareness-server`](situational-awareness-server)
 
-The Database layer is responsible for handling the writing to and reading from the vector database. It also contains the actual vector database.
-
-## General setup instructions
-
-Here are some general setup instructions for the Input side and the Output side. The layer specific setup instructions can be found below this section.
-
-### Step 1: Install Docker
-
-You can install the Docker Engine from here: https://docs.docker.com/engine/install/.
-
-Choose your operating system from the navigation on the left and follow the instructions for installing Docker.
-
-### Step 2: Clone this repository to your machine
-
-Clone this repository to your machine. For running the Output side only, you will NOT need the `Input-side-server`.
-
-### Step 3: Create a docker network
-
-Create a user-defined netwwork named `edgemind_network` by running `docker network create edgemind_network`.
+The **Output layer** is responsible for receiving a question from a user, and generating a response with a language model for the user using information that is retrieved from the vector database. The response can be either text or an image, depending on which service is used. The Output layer consists of the following services:
+- [`LLMquery-server-text`](LLMquery-server-text)
+- [`LLMquery-server-image`](LLMquery-server-image)
 
 
-## Set up instructions for running the Input side (`Input-side-server`)
-
-Follow the instructions below to run the Input side file processing process. For uploading files to the Input side you can set up the client mobile app by following the instructions provided here.
-
-### Step 1: Create a virtual environment and install requirements
-
-Navigate to the edgeMIND project folder and create a python virtual environment:
-` python<version> -m venv <venv-name>`
-
-Activate the virtual environment: `source <venv-name>/bin/activate`
-
-Navigate back to the project root and install the dependencies: `pip install -r requirements.txt`
-
-### Step 2: Set up the environment variables
-
-Create a `.env` file in the project root.
-
-Acquire the API key for the LlamaParse library and save it in the `.env` file as `LLAMAPARSE_API_KEY`.
-
-Save the IP address of your machine as `INPUT_SERVER_IP`.
-
-### Step 3: Run the service
-
-Run the service with `python http_file_upload_server.py`.
+The **Database layer** is responsible for handling the writing to and reading from the vector database. It also contains the actual vector database. The vector database service is used to retrieve information from the database to be utilized in the generation of the response for the user (RAG). The Database layer consists of only one service:
+- [`edgeMIND-vector-db-server`](edgeMIND-vector-db-server)
 
 
-## Set up instructions for running the Output side (`LLMquery-server-text`, `LLMquery-server-audio`, and `edgeMIND-vector-db-server`)
+## Evaluation tests
 
-Follow the instructions below to get the Output side servers up and running in Docker containers. For sending and receiving messages to and from the servers you can set up the client mobile app by following the instructions provided here.
+The EdgeMIND system has been eveluated through evaluation tests that are divided to four different stages. The results for each evaluation metric on each stage, as well as the scripts that were used in the evaluation tests, can be found in this folder: <!-- ADD LINK! -->.
 
-### Step 1: Set up `LLMquery-server-text`, `LLMquery-server-audio` and `edgeMIND-vector-db-server`
 
-See the instructions in the README files of the modules 
-1. `LLMquery-server-text` and 
-2. `LLMquery-server-audio` and
-2. `edgeMIND-vector-db-server` 
+## Team and Affiliation
 
-for additional set up instructions for these particular modules.
+Members of the artifact development and research team:
+- Dinesh Karthikeyan
+- Pertti Arvola
+- Anna-Sofia Paavonen
+- Roopesh Shanmugasundaram
+- Niko Mäkitalo
 
-### Step 2: Download and save the LLM model locally
+University of Jyväskylä, Finland
 
-Run ```python download_and_save_LLM.py```
+The EdgeMIND framework has been developed as a part of the 6GSoft-project (6G software for extremely distributed and heterogeneous massive networks of connected devices). The project website can be found here: [6GSoft-project](https://sites.google.com/view/6gsoft/about?pli=1&authuser=0).
 
-(or `python3 download_and_save_LLM.py`) 
 
-in the `LLMquery-server-text` directory, to download and locally save the LLM model used in `LLMquery-server-text` and `LLMquery-server-audio`.
+## License
 
-Copy the LLM folder that was created and paste it in the `LLMquery-server-audio` direcory, too.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-### Step 3: Run and stop the containers
+## How to Set up the EdgeMIND System in a K3s Cluster
 
-In the project root directory, run `docker compose up --build`.
+Instructions for setting up the EdgeMIND system in a K3s cluster can be found in this file: [`k3s_cluster_setup_instructions.md`](k3s_cluster_setup_instructions.md).
 
-Now the containers should be running and you should be able to see logs for the running services in the terminal.
+## References
 
-Stop the containers by pressing `Ctrl + C`and then run `docker compose down` in the terminal.
+<a id="1">[1]</a> 
+Dinesh Kumar Karthikeyan, Roopesh Kumar Shanmugasundaram, Anna-Sofia Paavonen, Tommi Mikkonen, Niko Mäkitalo, and Ronny Seiger. 2025. Distributed Computing with Language Models at the Edge: A Framework and Prototype. In Proceedings of the 15th International Conference on the Internet of Things (IOT '25). Association for Computing Machinery, New York, NY, USA, 77–85. https://doi.org/10.1145/3770501.3770511
